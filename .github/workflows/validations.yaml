@@ -1,0 +1,62 @@
+name: Validations
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  XCODE_VERSION: 16.1
+  TUIST_TEST_DEVICE: iPad (10th generation)
+  TUIST_TEST_PLATFORM: iOS
+  TUIST_TEST_OS: 17.2
+
+jobs:
+  development-tests:
+    runs-on: macos-latest
+
+    strategy:
+      matrix:
+        scheme:
+        - UnitTests
+        # SnapshotTests
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: jdx/mise-action@5083fe46898c414b2475087cc79da59e7da859e8
+    - uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd
+      with:
+        xcode-version: ${{ env.XCODE_VERSION }}
+
+    - name: Install dependencies
+      run: tuist install --path Samples
+
+    - name: Test iOS
+      run: tuist test --path Samples ${{ matrix.scheme }}
+
+  samples:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: jdx/mise-action@5083fe46898c414b2475087cc79da59e7da859e8
+    - uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd
+      with:
+        xcode-version: ${{ env.XCODE_VERSION }}
+
+    - name: Install dependencies
+      run: tuist install --path Samples
+
+    - name: Tutorial App
+      run: tuist build --path Samples Samples
+
+  swiftformat:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: jdx/mise-action@5083fe46898c414b2475087cc79da59e7da859e8
+
+    - name: Run swiftformat
+      run: swiftformat --lint .

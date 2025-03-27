@@ -1,0 +1,6 @@
+/* Read by Voiceover to help the user learn how to dismiss a popup. */
+"modal_overlay_dismiss_a11y_hint" = "Double tap to dismiss pop-up window";
+
+/* Read by Voiceover to indicate that the action will dismiss a popup. */
+"modal_overlay_dismiss_a11y_label" = "Dismiss pop-up";
+
