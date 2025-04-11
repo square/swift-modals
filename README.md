@@ -69,7 +69,7 @@ tuist generate --path Samples
 
 ## Credits
 
-`swift-modals` was written by [@watt](https://github.com/watt) with help from [@kylebshr](https://github.com/kylebshr), [@robmaceachern](https://github.com/robmaceachern), [@kyleve](https://github.com/kyleve), [@n8chur](https://github.com/n8chur), [@nononoah](https://github.com/nononoah), and others. Thank you to all contributors!
+`swift-modals` was written by [@watt](https://github.com/watt) with help from [@kylebshr](https://github.com/kylebshr), [@robmaceachern](https://github.com/robmaceachern), [@kyleve](https://github.com/kyleve), [@n8chur](https://github.com/n8chur), [@nononoah](https://github.com/nononoah), [@bencochran](https://github.com/bencochran) and others. Thank you to all contributors!
 
 ## License
 
