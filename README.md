@@ -1,6 +1,6 @@
 # Modals
 
-TODO: CI badges go here
+[![Validations](https://github.com/square/swift-modals/actions/workflows/validations.yaml/badge.svg)](https://github.com/square/swift-modals/actions/workflows/validations.yaml)
 
 A framework for presenting modal content deterministically in an iOS application.
 
