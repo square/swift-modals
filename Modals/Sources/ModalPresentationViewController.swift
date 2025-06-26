@@ -82,6 +82,7 @@ public final class ModalPresentationViewController: UIViewController {
     private var keyboardFrame: CGRect?
     private var focusableLayers: [FocusableLayer]
     private var accessibilityLayers: [AccessibilityLayer]
+    private var accessibilityScreenChangedTimer: Timer? = nil
 
     // MARK: - Lifecycle
 
@@ -504,15 +505,22 @@ public final class ModalPresentationViewController: UIViewController {
 
     private func postAccessibilityScreenChangedNotification() {
 
-        /// **Note** – We provide a short delay to allow the layout and accessibility system
-        /// to "settle", otherwise selection can be non-deterministic.
+        if let timer = accessibilityScreenChangedTimer {
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            /// If we animate multiple modals in or out at the same time or in quick succession,
+            /// we cancel the last timer and enqueue another one, only posting the screen
+            /// changed notification when all modal transitions have settled.
+
+            timer.invalidate()
+
+            accessibilityScreenChangedTimer = nil
+        }
+
+        /// **Note**: We provide a short delay to allow the layout and accessibility
+        /// system to "settle", otherwise selection can be non-deterministic.
+
+        accessibilityScreenChangedTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { [weak self] _ in
             guard let self else { return }
-
-            /// TODO: If we animate multiple modals in or out at the same time, this is called
-            /// for each of them. We should only call it once all transitions have settled for the
-            /// topmost layer.
 
             func focusedElement() -> NSObject? {
                 guard let top = accessibilityLayers.last else {
