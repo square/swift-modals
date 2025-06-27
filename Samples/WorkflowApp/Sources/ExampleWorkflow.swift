@@ -12,7 +12,10 @@ struct ExampleWorkflow: Workflow {
         case present(ExamplePresentation)
         case dismiss
 
-        func apply(toState state: inout ExampleWorkflow.State) -> ExampleWorkflow.Output? {
+        func apply(
+            toState state: inout ExampleWorkflow.State,
+            context: ApplyContext<ExampleWorkflow>
+        ) -> ExampleWorkflow.Output? {
             switch self {
             case .present(let presentation):
                 state.presentation = presentation
