@@ -65,13 +65,14 @@ final class ModalPresentationViewControllerTests: XCTestCase {
         do {
             XCTAssertEqual(handler.logs.count, 1)
             let payload = try XCTUnwrap(handler.logs.last)
-            let metadata = try XCTUnwrap(payload.metadata)
 
             XCTAssert(payload.message.description.contains(/will transition/))
-            XCTAssertEqual(metadata["presenterViewController"], .stringConvertible(subject))
-            XCTAssertEqual(metadata["fromViewController"], .stringConvertible(controllers[0]))
-            XCTAssertEqual(metadata["toViewController"], .stringConvertible(controllers[1]))
-            XCTAssertEqual(metadata["transitionState"], .stringConvertible("entering"))
+
+            let event = try XCTUnwrap(ModalPresentationWillTransitionLogEvent(metadata: payload.metadata!))
+            XCTAssertEqual(event.presenterViewController, subject)
+            XCTAssertEqual(event.fromViewController, controllers[0])
+            XCTAssertEqual(event.toViewController, controllers[1])
+            XCTAssertEqual(event.transitionState, .entering)
         }
 
         // Second presentation
@@ -81,13 +82,14 @@ final class ModalPresentationViewControllerTests: XCTestCase {
         do {
             XCTAssertEqual(handler.logs.count, 2)
             let payload = try XCTUnwrap(handler.logs.last)
-            let metadata = try XCTUnwrap(payload.metadata)
 
             XCTAssert(payload.message.description.contains(/will transition/))
-            XCTAssertEqual(metadata["presenterViewController"], .stringConvertible(subject))
-            XCTAssertEqual(metadata["fromViewController"], .stringConvertible(controllers[1]))
-            XCTAssertEqual(metadata["toViewController"], .stringConvertible(controllers[2]))
-            XCTAssertEqual(metadata["transitionState"], .stringConvertible("entering"))
+
+            let event = try XCTUnwrap(ModalPresentationWillTransitionLogEvent(metadata: payload.metadata!))
+            XCTAssertEqual(event.presenterViewController, subject)
+            XCTAssertEqual(event.fromViewController, controllers[1])
+            XCTAssertEqual(event.toViewController, controllers[2])
+            XCTAssertEqual(event.transitionState, .entering)
         }
 
         // First dismissal
@@ -97,13 +99,14 @@ final class ModalPresentationViewControllerTests: XCTestCase {
         do {
             XCTAssertEqual(handler.logs.count, 3)
             let payload = try XCTUnwrap(handler.logs.last)
-            let metadata = try XCTUnwrap(payload.metadata)
 
             XCTAssert(payload.message.description.contains(/will transition/))
-            XCTAssertEqual(metadata["presenterViewController"], .stringConvertible(subject))
-            XCTAssertEqual(metadata["fromViewController"], .stringConvertible(controllers[2]))
-            XCTAssertEqual(metadata["toViewController"], .stringConvertible(controllers[1]))
-            XCTAssertEqual(metadata["transitionState"], .stringConvertible("exiting"))
+
+            let event = try XCTUnwrap(ModalPresentationWillTransitionLogEvent(metadata: payload.metadata!))
+            XCTAssertEqual(event.presenterViewController, subject)
+            XCTAssertEqual(event.fromViewController, controllers[2])
+            XCTAssertEqual(event.toViewController, controllers[1])
+            XCTAssertEqual(event.transitionState, .exiting)
         }
 
         // Second dismissal
@@ -113,13 +116,14 @@ final class ModalPresentationViewControllerTests: XCTestCase {
         do {
             XCTAssertEqual(handler.logs.count, 4)
             let payload = try XCTUnwrap(handler.logs.last)
-            let metadata = try XCTUnwrap(payload.metadata)
 
             XCTAssert(payload.message.description.contains(/will transition/))
-            XCTAssertEqual(metadata["presenterViewController"], .stringConvertible(subject))
-            XCTAssertEqual(metadata["fromViewController"], .stringConvertible(controllers[1]))
-            XCTAssertEqual(metadata["toViewController"], .stringConvertible(controllers[0]))
-            XCTAssertEqual(metadata["transitionState"], .stringConvertible("exiting"))
+
+            let event = try XCTUnwrap(ModalPresentationWillTransitionLogEvent(metadata: payload.metadata!))
+            XCTAssertEqual(event.presenterViewController, subject)
+            XCTAssertEqual(event.fromViewController, controllers[1])
+            XCTAssertEqual(event.toViewController, controllers[0])
+            XCTAssertEqual(event.transitionState, .exiting)
         }
     }
 

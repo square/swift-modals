@@ -347,13 +347,13 @@ public final class ModalPresentationViewController: UIViewController {
                 logger.log(
                     level: .info,
                     "Modal presentation will transition",
-                    metadata: [
-                        "presenterViewController": .stringConvertible(self),
-                        "fromViewController": .stringConvertible(fromViewController),
-                        "toViewController": .stringConvertible(presentation.viewController),
-                        "transitionState": .stringConvertible("entering"),
-                        "animated": .stringConvertible(true),
-                    ]
+                    event: ModalPresentationWillTransitionLogEvent(
+                        presenterViewController: self,
+                        fromViewController: fromViewController,
+                        toViewController: presentation.viewController,
+                        transitionState: .entering,
+                        animated: true
+                    )
                 )
 
                 addChild(presentation.containerViewController)
@@ -669,13 +669,13 @@ public final class ModalPresentationViewController: UIViewController {
         logger.log(
             level: .info,
             "Modal presentation will transition",
-            metadata: [
-                "presenterViewController": .stringConvertible(self),
-                "fromViewController": .stringConvertible(presentation.viewController),
-                "toViewController": .stringConvertible(toViewController),
-                "transitionState": .stringConvertible("exiting"),
-                "animated": .stringConvertible(true),
-            ]
+            event: ModalPresentationWillTransitionLogEvent(
+                presenterViewController: self,
+                fromViewController: presentation.viewController,
+                toViewController: toViewController,
+                transitionState: .exiting,
+                animated: true
+            )
         )
 
         presentation.containerViewController.willMove(toParent: nil)
