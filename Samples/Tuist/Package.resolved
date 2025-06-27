@@ -86,8 +86,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/square/workflow-swift",
       "state" : {
-        "revision" : "4b9f961c1501b53a48c4b46ce885159e897fbd95",
-        "version" : "3.14.1"
+        "revision" : "53fc18d87e1785891b64f2dda782bae47f595399",
+        "version" : "4.0.1"
       }
     },
     {
