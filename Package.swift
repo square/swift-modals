@@ -21,7 +21,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-log", from: "1.4.4"),
-        .package(url: "https://github.com/square/workflow-swift", from: "4.0.1"),
+        .package(url: "https://github.com/square/workflow-swift", branch: "markj/reactive_swift_removal"),
     ],
     targets: [
         .target(

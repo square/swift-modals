@@ -86,8 +86,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/square/workflow-swift",
       "state" : {
-        "revision" : "53fc18d87e1785891b64f2dda782bae47f595399",
-        "version" : "4.0.1"
+        "branch" : "markj/reactive_swift_removal",
+        "revision" : "0cc44261402b520957dceaf40f3290126f15b67c"
       }
     },
     {
