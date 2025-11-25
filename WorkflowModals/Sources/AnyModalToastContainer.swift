@@ -132,7 +132,7 @@ public final class AnyModalToastContainerViewController: ScreenViewController<An
 
     public override func loadView() {
         view = View(willMoveToWindow: { [weak self] window in
-            self?.isBeingRemovedFromHierarchy = window == nil
+            // self?.isBeingRemovedFromHierarchy = window == nil
 
             if window == nil {
                 self?.setNeedsModalHostUpdate()
