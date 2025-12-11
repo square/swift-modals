@@ -65,9 +65,9 @@ public final class AnyModalToastContainerViewController: ScreenViewController<An
     // the host of our modals once we're in one.
     private var needsModalHostUpdate: Bool
 
-    // When we're removed from the view (controller) hierarchy, we need to notify our modal host to update our
-    // modals with an empty modal list. This bool indicates that `aggregateModals` should return an empty array.
-    private var isBeingRemovedFromHierarchy = false
+    // This indicates that the controller's view has been removed from its window. When true, modals will
+    // not be aggregated. However, toasts will continue to aggregate.
+    private var wasRemovedFromWindow = false
 
     // The manager is lazily instantiated and updated when aggregateModals is first called so that it is more likely to
     // use a complete and valid environment during the initial modal list resolution. We may, for example, be in a
@@ -84,10 +84,6 @@ public final class AnyModalToastContainerViewController: ScreenViewController<An
     }
 
     public override func aggregateModals() -> ModalList {
-        if isBeingRemovedFromHierarchy {
-            return ModalList(modals: [])
-        }
-
         // Lazily instantiate and update the manager if needed.
         let manager: AnyPresentedModalsManager
         if let existingManager = self.manager {
@@ -108,8 +104,8 @@ public final class AnyModalToastContainerViewController: ScreenViewController<An
         }
 
         return ModalList(
-            modals: aggregateModals.modals
-                + presentedModalsAndAggregates.flatMap { [$0] + $1.modals },
+            modals: wasRemovedFromWindow ? [] : (aggregateModals.modals
+                + presentedModalsAndAggregates.flatMap { [$0] + $1.modals }),
             toasts: manager.presentedToasts.map { $0.toast }
                 + aggregateModals.toasts
                 + presentedModalsAndAggregates.flatMap { $1.toasts },
@@ -132,7 +128,7 @@ public final class AnyModalToastContainerViewController: ScreenViewController<An
 
     public override func loadView() {
         view = View(willMoveToWindow: { [weak self] window in
-            self?.isBeingRemovedFromHierarchy = window == nil
+            self?.wasRemovedFromWindow = window == nil
 
             if window == nil {
                 self?.setNeedsModalHostUpdate()

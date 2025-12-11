@@ -417,4 +417,57 @@ class ModalHostContainerTests: XCTestCase {
         hostContainer.view.layoutIfNeeded()
         XCTAssertEqual(hostContainer.preferredContentSize, CGSize(width: axisSize, height: axisSize))
     }
+
+    func test_aggregation_with_no_window() {
+        let screen = ModalContainer(
+            base: ToastContainer(
+                base: EmptyScreen(),
+                toasts: [
+                    Toast(
+                        key: "test-toast",
+                        style: ToastPresentationStyleFixture(),
+                        content: EmptyScreen(),
+                        accessibilityAnnouncement: "Test toast."
+                    ),
+                ]
+            ),
+            modals: [
+                Modal(
+                    key: "test-modal",
+                    style: FullScreenModalStyle(),
+                    content: EmptyScreen()
+                ),
+            ]
+        )
+
+        let viewController = ModalHostContainer.ViewController(
+            screen: .init(
+                content: screen,
+                toastContainerStyle: .fixture
+            ),
+            environment: .empty
+        )
+
+        show(vc: viewController) { viewController in
+            viewController.view.layoutIfNeeded()
+
+            do {
+                // When the presenting controller's view is attached to the window, its modals
+                // and toasts should be aggregated, as long as there is a modal host.
+                let aggregated = viewController.content.aggregateModals()
+                XCTAssertEqual(aggregated.modals.count, 1)
+                XCTAssertEqual(aggregated.toasts.count, 1)
+            }
+
+            do {
+                // After the presenting controller's view is removed from the window, its modals
+                // should not be aggregated, but toasts should continue to aggregate.
+                viewController.view.removeFromSuperview()
+
+                let aggregated = viewController.content.aggregateModals()
+                XCTAssertEqual(aggregated.modals.count, 0)
+                XCTAssertEqual(aggregated.toasts.count, 1)
+            }
+        }
+    }
 }
