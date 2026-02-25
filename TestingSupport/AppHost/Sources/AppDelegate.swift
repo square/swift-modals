@@ -1,3 +1,4 @@
+import KeyboardObserver
 import Logging
 import Modals
 import UIKit
@@ -15,7 +16,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             SwiftLogNoOpLogHandler()
         }
 
-        ToastPresentationViewController.configure(with: application)
+        KeyboardObserver.configure(with: application)
 
         window = UIWindow(frame: UIScreen.main.bounds)
         window?.rootViewController = UIViewController()

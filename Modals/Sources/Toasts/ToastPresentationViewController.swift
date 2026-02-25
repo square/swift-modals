@@ -1,3 +1,4 @@
+import KeyboardObserver
 import UIKit
 import ViewEnvironment
 import ViewEnvironmentUI
@@ -72,7 +73,7 @@ public final class ToastPresentationViewController:
 
     let keyboardObserver: KeyboardObserver
 
-    private var lastKeyboardFrame: KeyboardObserver.KeyboardFrame? = nil
+    private var lastKeyboardFrame: KeyboardFrame? = nil
 
     private var lastLaidOutSize: CGSize?
 
@@ -437,7 +438,7 @@ public final class ToastPresentationViewController:
 
 extension ToastPresentationViewController: KeyboardObserverDelegate {
 
-    func keyboardFrameWillChange(
+    public func keyboardFrameWillChange(
         for observer: KeyboardObserver,
         animationDuration: Double,
         animationCurve: UIView.AnimationCurve
