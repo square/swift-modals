@@ -1,3 +1,4 @@
+import KeyboardObserver
 import UIKit
 
 /// This view controller is capable of presenting the modals in a `ModalList`.
@@ -2428,7 +2429,7 @@ extension ModalPresentationViewController {
 
 extension ModalPresentationViewController: KeyboardObserverDelegate {
 
-    func keyboardFrameWillChange(
+    public func keyboardFrameWillChange(
         for observer: KeyboardObserver,
         animationDuration: Double,
         animationCurve: UIView.AnimationCurve

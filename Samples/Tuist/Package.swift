@@ -7,6 +7,7 @@ import ProjectDescription
 
 let packageSettings = PackageSettings(
     productTypes: [
+        "KeyboardObserver": .framework,
         "Logging": .framework,
         "Modals": .framework,
         "ViewEnvironment": .framework,

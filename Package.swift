@@ -21,12 +21,14 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-log", from: "1.4.4"),
+        .package(url: "https://github.com/square/swift-keyboard-observer", from: "1.1.0"),
         .package(url: "https://github.com/square/workflow-swift", from: "4.0.1"),
     ],
     targets: [
         .target(
             name: "Modals",
             dependencies: [
+                .product(name: "KeyboardObserver", package: "swift-keyboard-observer"),
                 .product(name: "ViewEnvironmentUI", package: "workflow-swift"),
                 .product(name: "Logging", package: "swift-log"),
             ],
