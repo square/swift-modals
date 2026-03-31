@@ -11,6 +11,10 @@ env:
   TUIST_TEST_DEVICE: iPad (10th generation)
   TUIST_TEST_PLATFORM: iOS
   TUIST_TEST_OS: 18.6
+  MISE_GITHUB_SLSA: "false"
+  MISE_GITHUB_GITHUB_ATTESTATIONS: "false"
+  MISE_AQUA_SLSA: "false"
+  MISE_AQUA_GITHUB_ATTESTATIONS: "false"
 
 jobs:
   development-tests:
