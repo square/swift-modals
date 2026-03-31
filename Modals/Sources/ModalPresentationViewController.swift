@@ -470,12 +470,24 @@ public final class ModalPresentationViewController: UIViewController {
                 )
             }
 
+        /// Always update `accessibilityViewIsModal` — even when the top layer hasn't changed,
+        /// an exiting presentation may have stolen the flag from the remaining one.
+
+        let views = presentations(includeExiting: false).map(\.containerView)
+
+        views.last?.accessibilityViewIsModal = true
+
+        for view in views.dropLast() {
+            view.accessibilityViewIsModal = false
+        }
+
         /// Note: We can use ! here, because our base `content` is always included in the array; it can never be empty.
 
         let oldTopLayer = oldLayers.last!
         let topLayer = accessibilityLayers.last!
 
         /// If the layering didn't change, then nothing changed, we can bail early.
+        /// (Focus restoration and a11y notifications only matter when the top layer changes.)
 
         guard oldTopLayer != topLayer else {
             return
@@ -485,22 +497,6 @@ public final class ModalPresentationViewController: UIViewController {
 
         if accessibilityLayers.contains(oldTopLayer) {
             focusRestorationStorage.focusRestoration(for: oldTopLayer.viewController).recordFocusedAccessibilityElement()
-        }
-
-        /// Note: We don't restore a11y here, it's done once the
-        /// presentation or dismissal animation is completed after a short delay.
-        ///
-        /// See `postAccessibilityScreenChangedNotification`.
-
-        /// Now we can update our `accessibilityViewIsModal` status.
-        /// This ensures that VoiceOver users only see the top-most modal layer.
-
-        let views = allPresentations.map(\.containerView)
-
-        views.last?.accessibilityViewIsModal = true
-
-        for view in views.dropLast() {
-            view.accessibilityViewIsModal = false
         }
     }
 
@@ -762,6 +758,11 @@ public final class ModalPresentationViewController: UIViewController {
         presentation.decorationViews.forEach { $0.removeFromSuperview() }
 
         allPresentations.removeAll { $0.viewController === presentation.viewController }
+
+        // Re-evaluate accessibilityViewIsModal after removal.
+        // The removed presentation may have held the flag, leaving the
+        // remaining top presentation with accessibilityViewIsModal = false.
+        updateAccessibilityViewIsModal()
     }
 
     private func setUpTransitionIn(presentation: Presentation) {
