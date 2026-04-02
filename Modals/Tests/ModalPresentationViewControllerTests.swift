@@ -149,7 +149,10 @@ final class ModalPresentationViewControllerTests: XCTestCase {
         }
         XCTAssertEqual(containerViews.count, 1, "Expected one ContainerView after presenting modal A")
         let containerA = containerViews[0]
-        XCTAssertTrue(containerA.accessibilityViewIsModal, "Modal A's ContainerView should have accessibilityViewIsModal = true")
+        XCTAssertTrue(
+            containerA.accessibilityViewIsModal,
+            "Modal A's ContainerView should have accessibilityViewIsModal = true"
+        )
 
         // Present modal B on top of A
         subject.update(modals: [modal(for: modalA), modal(for: modalB)])
