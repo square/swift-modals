@@ -12,7 +12,7 @@
 
 1. Once merged, go to [Releases](https://github.com/square/swift-modals/releases) and `Draft a new release`.
 
-1. `Choose a tag` and create a tag for the new version.
+1. `Choose a tag` and create a tag targeting the **signed merge commit** on `main`.
 
 1. In the release notes, copy the changes from the changelog.
 
