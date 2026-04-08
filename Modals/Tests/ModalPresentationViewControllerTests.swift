@@ -127,6 +127,66 @@ final class ModalPresentationViewControllerTests: XCTestCase {
         }
     }
 
+    // MARK: - Accessibility
+
+    func test_accessibilityViewIsModal_restored_after_nested_dismiss() {
+        let content = UIViewController()
+        let subject = ModalPresentationViewController(content: content)
+
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 400, height: 800))
+        window.rootViewController = subject
+        window.makeKeyAndVisible()
+
+        let modalA = UIViewController()
+        let modalB = UIViewController()
+
+        // Present modal A
+        subject.update(modals: [modal(for: modalA)])
+
+        // Find modal A's ContainerView
+        let containerViews = subject.view.subviews.filter {
+            String(describing: type(of: $0)).contains("ContainerView")
+        }
+        XCTAssertEqual(containerViews.count, 1, "Expected one ContainerView after presenting modal A")
+        let containerA = containerViews[0]
+        XCTAssertTrue(
+            containerA.accessibilityViewIsModal,
+            "Modal A's ContainerView should have accessibilityViewIsModal = true"
+        )
+
+        // Present modal B on top of A
+        subject.update(modals: [modal(for: modalA), modal(for: modalB)])
+
+        // Now modal B's container should be modal, A's should not
+        let containerViewsAfterB = subject.view.subviews.filter {
+            String(describing: type(of: $0)).contains("ContainerView")
+        }
+        XCTAssertEqual(containerViewsAfterB.count, 2, "Expected two ContainerViews after presenting modal B")
+
+        // Dismiss modal B — only A remains
+        subject.update(modals: [modal(for: modalA)])
+
+        // Wait for the exit animation to complete
+        let expectation = expectation(description: "animation")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 2.0)
+
+        // Modal A's ContainerView should have accessibilityViewIsModal restored to true
+        let containerViewsAfterDismiss = subject.view.subviews.filter {
+            String(describing: type(of: $0)).contains("ContainerView")
+        }
+        XCTAssertEqual(containerViewsAfterDismiss.count, 1, "Expected one ContainerView after dismissing modal B")
+        XCTAssertTrue(
+            containerViewsAfterDismiss[0].accessibilityViewIsModal,
+            "BUG: Modal A's ContainerView has accessibilityViewIsModal = false after nested dismiss. Parent screen elements will leak through."
+        )
+
+        window.resignKey()
+        window.isHidden = true
+    }
+
     func modal(for vc: UIViewController) -> PresentableModal {
         PresentableModal(
             viewController: vc,
