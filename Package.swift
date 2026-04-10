@@ -22,7 +22,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-log", from: "1.4.4"),
         .package(url: "https://github.com/square/swift-keyboard-observer", from: "1.1.0"),
-        .package(url: "https://github.com/square/workflow-swift", from: "4.0.1"),
+        .package(url: "https://github.com/square/workflow-swift", "4.0.1"..<"6.0.0"),
     ],
     targets: [
         .target(
