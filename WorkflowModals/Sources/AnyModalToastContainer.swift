@@ -187,12 +187,15 @@ public final class AnyModalToastContainerViewController: ScreenViewController<An
         }
 
         guard let host = modalHost else {
-
             // If we're not installed the view controller hierarchy, we don't expect to find a
             // host, but if we are and we don't have a modal host, that's a programmer error
             // since we cannot present our modals.
 
             guard isViewLoaded else {
+                return
+            }
+
+            guard parent != nil else {
                 return
             }
 

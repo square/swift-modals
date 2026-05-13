@@ -193,6 +193,69 @@ final class ModalContainerTests: XCTestCase {
             }
         }
     }
+
+    func test_modal_host_update_defers_when_view_has_window_without_parent() throws {
+        class HostViewController: UIViewController, ModalHost {
+
+            var updateModalsCount = 0
+            var aggregatedModalCount = 0
+
+            func setNeedsModalUpdate() {
+                updateModalsCount += 1
+                aggregatedModalCount = aggregateModals().modals.count
+            }
+        }
+
+        let modalScreen = ModalContainer<EmptyScreen, EmptyScreen>(
+            base: EmptyScreen(),
+            modals: []
+        )
+
+        let description = modalScreen.viewControllerDescription(environment: .empty)
+        let viewController = try XCTUnwrap(description.buildViewController() as? AnyModalToastContainerViewController)
+
+        let host = HostViewController()
+
+        show(vc: host) { host in
+            viewController.view.frame = host.view.bounds
+            host.view.addSubview(viewController.view)
+
+            XCTAssertNil(viewController.parent)
+            XCTAssertNotNil(viewController.view.window)
+
+            let updatedScreen = ModalContainer(
+                base: EmptyScreen(),
+                modals: [
+                    Modal(
+                        key: "first-modal",
+                        style: FullScreenModalStyle(),
+                        content: EmptyScreen()
+                    ),
+                ]
+            )
+
+            updatedScreen.viewControllerDescription(environment: .empty)
+                .update(viewController: viewController)
+            viewController.view.layoutIfNeeded()
+
+            XCTAssertEqual(host.updateModalsCount, 0)
+
+            viewController.view.removeFromSuperview()
+            host.addChild(viewController)
+            host.view.addSubview(viewController.view)
+            viewController.didMove(toParent: host)
+
+            viewController.view.setNeedsLayout()
+            viewController.view.layoutIfNeeded()
+
+            XCTAssertEqual(host.updateModalsCount, 1)
+            XCTAssertEqual(host.aggregatedModalCount, 1)
+
+            viewController.willMove(toParent: nil)
+            viewController.view.removeFromSuperview()
+            viewController.removeFromParent()
+        }
+    }
 }
 
 extension ModalContainerTests {
