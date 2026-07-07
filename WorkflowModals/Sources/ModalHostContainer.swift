@@ -141,7 +141,9 @@ extension ModalHostContainer: Screen where Content: Screen {
 
     // TODO: This should be extracted from `ModalHostContainer<Content>` so its type isnt dependent on `<Content>`.
 
-    final class ViewController: ScreenViewController<ModalHostContainer>, ModalHost, ToastPresentationViewControllerDelegate {
+    final class ViewController: ScreenViewController<ModalHostContainer>, ModalHost, HostToastPresenting,
+        ToastPresentationViewControllerDelegate
+    {
         private(set) var content: UIViewController
         let modalPresentationController: ModalPresentationViewController
         let toastPresentationController: ToastPresentationViewController
@@ -289,6 +291,14 @@ extension ModalHostContainer: Screen where Content: Screen {
             // Some modals should be forwarded. Pass them through to aggregation.
             let modalList = content.aggregateModals()
             return presentationFilter.presentedByAncestor(modalList)
+        }
+
+        // MARK: HostToastPresenting
+
+        /// A `ToastPresenter` that presents toasts from the root of this host's content. See
+        /// [HostToastPresenting](x-source-tag://HostToastPresenting).
+        var contentToastPresenter: ToastPresenter {
+            content.toastPresenter
         }
 
         private var ancestorModalHost: ModalHost? {

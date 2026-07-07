@@ -417,4 +417,32 @@ class ModalHostContainerTests: XCTestCase {
         hostContainer.view.layoutIfNeeded()
         XCTAssertEqual(hostContainer.preferredContentSize, CGSize(width: axisSize, height: axisSize))
     }
+
+    func test_host_toast_presenter_presents_from_content() {
+        let viewController = ModalHostContainer.ViewController(
+            screen: .init(
+                content: EmptyScreen(),
+                toastContainerStyle: .fixture
+            ),
+            environment: .empty
+        )
+
+        let host: HostToastPresenting = viewController
+
+        let lifetime = host.contentToastPresenter.present(
+            UIViewController(),
+            style: .init(ToastPresentationStyleFixture()),
+            accessibilityAnnouncement: "Toast."
+        )
+
+        // The toast is owned by the host's content, making it visible to the host's aggregation.
+        XCTAssertEqual(viewController.content.aggregateModals().toasts.count, 1)
+
+        show(vc: viewController) { viewController in
+            XCTAssertTrue(viewController.toastPresentationController.hasVisiblePresentations)
+
+            lifetime.dismiss()
+            XCTAssertEqual(viewController.content.aggregateModals().toasts.count, 0)
+        }
+    }
 }

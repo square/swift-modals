@@ -266,6 +266,15 @@ public final class ModalHostContainerViewController: UIViewController, ModalHost
     }
 }
 
+extension ModalHostContainerViewController: HostToastPresenting {
+
+    /// A `ToastPresenter` that presents toasts from the root of this host's content. See
+    /// [HostToastPresenting](x-source-tag://HostToastPresenting).
+    public var contentToastPresenter: ToastPresenter {
+        content.toastPresenter
+    }
+}
+
 private final class ModalHostView: UIView {
     private let passthroughSizeThatFits: (CGSize) -> CGSize
     private let ancestorPresentationView: () -> UIView?
