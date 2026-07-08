@@ -26,7 +26,7 @@ final class HostToastPresentingTests: XCTestCase {
         }
     }
 
-    func test_toast_outlives_presenting_descendent() {
+    func test_toast_outlives_presenting_descendent() throws {
         let content = UIViewController()
         let screen = UIViewController()
         content.addChild(screen)
@@ -35,7 +35,10 @@ final class HostToastPresentingTests: XCTestCase {
 
         let host = ModalHostContainerViewController(content: content)
 
-        let lifetime = host.contentToastPresenter.present(
+        // Resolve the host from the triggering view controller, as a consumer would, and retain
+        // the lifetime outside it — the toast's presentation must not depend on the trigger.
+        let resolvedHost = try XCTUnwrap(screen.rootModalHost as? HostToastPresenting)
+        let lifetime = resolvedHost.contentToastPresenter.present(
             UIViewController(),
             style: .init(ToastPresentationStyleFixture()),
             accessibilityAnnouncement: "Toast."
@@ -52,6 +55,65 @@ final class HostToastPresentingTests: XCTestCase {
             1,
             "The toast should remain presented after the triggering view controller is removed."
         )
+
+        _ = host
+    }
+
+    func test_nested_host_forwards_toasts_to_ancestor_by_default() {
+        let innerContent = UIViewController()
+        let innerHost = ModalHostContainerViewController(content: innerContent)
+
+        let outerContent = UIViewController()
+        outerContent.addChild(innerHost)
+        outerContent.view.addSubview(innerHost.view)
+        innerHost.didMove(toParent: outerContent)
+
+        let outerHost = ModalHostContainerViewController(content: outerContent)
+
+        let lifetime = innerHost.contentToastPresenter.present(
+            UIViewController(),
+            style: .init(ToastPresentationStyleFixture()),
+            accessibilityAnnouncement: "Toast."
+        )
+        defer { lifetime.dismiss() }
+
+        show(vc: outerHost) { outerHost in
+            innerHost.view.layoutIfNeeded()
+
+            // The default pass-through-toasts filter forwards the toast to the ancestor host.
+            XCTAssertFalse(innerHost.toastPresentation.hasVisiblePresentations)
+            XCTAssertTrue(outerHost.toastPresentation.hasVisiblePresentations)
+        }
+    }
+
+    func test_nested_host_presents_toasts_locally_when_not_passing_through() {
+        let innerContent = UIViewController()
+        let innerHost = ModalHostContainerViewController(
+            content: innerContent,
+            shouldPassthroughToasts: false
+        )
+
+        let outerContent = UIViewController()
+        outerContent.addChild(innerHost)
+        outerContent.view.addSubview(innerHost.view)
+        innerHost.didMove(toParent: outerContent)
+
+        let outerHost = ModalHostContainerViewController(content: outerContent)
+
+        let lifetime = innerHost.contentToastPresenter.present(
+            UIViewController(),
+            style: .init(ToastPresentationStyleFixture()),
+            accessibilityAnnouncement: "Toast."
+        )
+        defer { lifetime.dismiss() }
+
+        show(vc: outerHost) { outerHost in
+            innerHost.view.layoutIfNeeded()
+
+            // Without the pass-through filter, the inner host displays its own toasts.
+            XCTAssertTrue(innerHost.toastPresentation.hasVisiblePresentations)
+            XCTAssertFalse(outerHost.toastPresentation.hasVisiblePresentations)
+        }
     }
 
     func test_host_is_reachable_from_descendents() {
