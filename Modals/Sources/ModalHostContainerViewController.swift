@@ -43,7 +43,15 @@ public final class ModalHostContainerViewController: UIViewController, ModalHost
     public var presentationFilter: ModalPresentationFilter? {
         didSet {
             if presentationFilter?.identifier != oldValue?.identifier {
+                let formerAncestorModalHost = oldValue != nil && presentationFilter == nil
+                    ? ancestorModalHost
+                    : nil
+
                 setNeedsModalUpdate()
+
+                // `setNeedsModalUpdate()` only forwards through the current filter. If this host
+                // has stopped forwarding, the former ancestor still needs to remove its snapshot.
+                formerAncestorModalHost?.setNeedsModalUpdate()
             }
         }
     }
@@ -118,6 +126,28 @@ public final class ModalHostContainerViewController: UIViewController, ModalHost
         super.viewDidLoad()
 
         updatePreferredContentSize()
+    }
+
+    public override func willMove(toParent parent: UIViewController?) {
+        let formerAncestorModalHost = parent == nil && hasPresentationFilter
+            ? ancestorModalHost
+            : nil
+
+        super.willMove(toParent: parent)
+
+        // A forwarding host is part of its ancestor's aggregated modal list. Invalidate that
+        // snapshot before detaching, while the former ancestor is still reachable.
+        formerAncestorModalHost?.setNeedsModalUpdate()
+    }
+
+    public override func didMove(toParent parent: UIViewController?) {
+        super.didMove(toParent: parent)
+
+        // A host may already own presentations when it is attached to an active hierarchy.
+        // Ensure the new ancestor includes any forwarded presentations in its next update.
+        if parent != nil, hasPresentationFilter {
+            ancestorModalHost?.setNeedsModalUpdate()
+        }
     }
 
     public override func viewWillLayoutSubviews() {
