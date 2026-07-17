@@ -1,6 +1,5 @@
 import Combine
 import Modals
-import ReactiveSwift
 import ViewEnvironment
 import Workflow
 import WorkflowUI
@@ -20,11 +19,11 @@ final class WorkflowModalListProvider<WorkflowType, ModalContent, ToastContent>:
 
     private let workflowHost: WorkflowHost<RootWorkflow<WorkflowType.Rendering, WorkflowType.Output>>
 
-    private let (lifetime, token) = Lifetime.make()
-
     private let manager = Manager()
 
     private let _modalListDidChange = PassthroughSubject<Void, Never>()
+
+    private var cancellables: Set<AnyCancellable> = []
 
     private var contents: Manager.Contents {
         didSet { update() }
@@ -40,27 +39,25 @@ final class WorkflowModalListProvider<WorkflowType, ModalContent, ToastContent>:
     ) {
         workflowHost = .init(workflow: RootWorkflow(workflow))
 
-        workflowHost.output
-            .signal
-            .take(during: lifetime)
-            .observeValues(onOutput)
+        workflowHost.outputPublisher
+            .sink(receiveValue: onOutput)
+            .store(in: &cancellables)
 
         contents = .init(
-            modals: workflowHost.rendering.value.modals,
-            toasts: workflowHost.rendering.value.toasts
+            modals: workflowHost.rendering.modals,
+            toasts: workflowHost.rendering.toasts
         )
         workflowHost
-            .rendering
-            .signal
-            .take(during: lifetime)
-            .observeValues { [weak self] value in
+            .renderingPublisher
+            .dropFirst()
+            .sink { [weak self] value in
                 guard let self else { return }
 
                 contents = .init(
                     modals: value.modals,
                     toasts: value.toasts
                 )
-            }
+            }.store(in: &cancellables)
     }
 
     func update(environment: ViewEnvironment) {

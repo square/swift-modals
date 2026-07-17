@@ -7,10 +7,10 @@ on:
   pull_request:
 
 env:
-  XCODE_VERSION: 26.2
-  TUIST_TEST_DEVICE: iPad (10th generation)
+  XCODE_VERSION: 26.5
+  TUIST_TEST_DEVICE: iPad Pro 11-inch (M5)
   TUIST_TEST_PLATFORM: iOS
-  TUIST_TEST_OS: 18.6
+  TUIST_TEST_OS: 26.2
 
 jobs:
   development-tests:
