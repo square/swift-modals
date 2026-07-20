@@ -417,4 +417,184 @@ class ModalHostContainerTests: XCTestCase {
         hostContainer.view.layoutIfNeeded()
         XCTAssertEqual(hostContainer.preferredContentSize, CGSize(width: axisSize, height: axisSize))
     }
+
+    func test_host_toast_presenter_presents_from_content() {
+        let viewController = ModalHostContainer.ViewController(
+            screen: .init(
+                content: EmptyScreen(),
+                toastContainerStyle: .fixture
+            ),
+            environment: .empty
+        )
+
+        let host: HostToastPresenting = viewController
+
+        let lifetime = host.contentToastPresenter.present(
+            UIViewController(),
+            style: .init(ToastPresentationStyleFixture()),
+            accessibilityAnnouncement: "Toast."
+        )
+
+        // The toast is owned by the host's content, making it visible to the host's aggregation.
+        XCTAssertEqual(viewController.content.aggregateModals().toasts.count, 1)
+
+        show(vc: viewController) { viewController in
+            XCTAssertTrue(viewController.toastPresentationController.hasVisiblePresentations)
+
+            lifetime.dismiss()
+            XCTAssertEqual(viewController.content.aggregateModals().toasts.count, 0)
+        }
+    }
+
+    func test_nested_host_toast_presenter_forwards_to_ancestor_by_default() throws {
+        let innerHost = makeToastHost()
+        let outerHost = makeToastHost()
+        nest(innerHost, in: outerHost)
+
+        let resolvedHost = try XCTUnwrap(innerHost.content.modalHost as? HostToastPresenting)
+        XCTAssertTrue((resolvedHost as? UIViewController) === innerHost)
+        XCTAssertTrue((innerHost.content.rootModalHost as? UIViewController) === outerHost)
+
+        let lifetime = resolvedHost.contentToastPresenter.present(
+            UIViewController(),
+            style: .init(ToastPresentationStyleFixture()),
+            accessibilityAnnouncement: "Toast."
+        )
+        defer { lifetime.dismiss() }
+
+        show(vc: outerHost) { outerHost in
+            innerHost.view.layoutIfNeeded()
+
+            XCTAssertTrue(innerHost.toastPresentationController.presentedViewControllers.isEmpty)
+            XCTAssertEqual(outerHost.toastPresentationController.presentedViewControllers.count, 1)
+        }
+    }
+
+    func test_nested_host_toast_presenter_presents_locally_without_passthrough() {
+        let innerHost = makeToastHost(shouldPassthroughToasts: false)
+        let outerHost = makeToastHost()
+        nest(innerHost, in: outerHost)
+
+        let lifetime = innerHost.contentToastPresenter.present(
+            UIViewController(),
+            style: .init(ToastPresentationStyleFixture()),
+            accessibilityAnnouncement: "Toast."
+        )
+        defer { lifetime.dismiss() }
+
+        show(vc: outerHost) { outerHost in
+            innerHost.view.layoutIfNeeded()
+
+            XCTAssertEqual(innerHost.toastPresentationController.presentedViewControllers.count, 1)
+            XCTAssertTrue(outerHost.toastPresentationController.presentedViewControllers.isEmpty)
+        }
+    }
+
+    func test_removing_nested_host_clears_forwarded_toast_from_ancestor() {
+        let innerHost = makeToastHost()
+        let outerHost = makeToastHost()
+        nest(innerHost, in: outerHost)
+
+        let lifetime = innerHost.contentToastPresenter.present(
+            UIViewController(),
+            style: .init(ToastPresentationStyleFixture()),
+            accessibilityAnnouncement: "Toast."
+        )
+        defer { lifetime.dismiss() }
+
+        show(vc: outerHost) { outerHost in
+            innerHost.view.layoutIfNeeded()
+            XCTAssertEqual(outerHost.toastPresentationController.presentedViewControllers.count, 1)
+
+            innerHost.willMove(toParent: nil)
+            innerHost.view.removeFromSuperview()
+            innerHost.removeFromParent()
+            outerHost.view.layoutIfNeeded()
+
+            XCTAssertEqual(innerHost.content.aggregateModals().toasts.count, 1)
+            XCTAssertTrue(
+                outerHost.toastPresentationController.presentedViewControllers.isEmpty,
+                "The outer host must remove the stale forwarded toast when the inner host detaches."
+            )
+        }
+    }
+
+    func test_attaching_nested_host_forwards_existing_toast_to_ancestor() {
+        let innerHost = makeToastHost()
+        let outerHost = makeToastHost()
+
+        let lifetime = innerHost.contentToastPresenter.present(
+            UIViewController(),
+            style: .init(ToastPresentationStyleFixture()),
+            accessibilityAnnouncement: "Toast."
+        )
+        defer { lifetime.dismiss() }
+
+        show(vc: outerHost) { outerHost in
+            XCTAssertTrue(outerHost.toastPresentationController.presentedViewControllers.isEmpty)
+
+            nest(innerHost, in: outerHost)
+            outerHost.view.layoutIfNeeded()
+
+            XCTAssertTrue(innerHost.toastPresentationController.presentedViewControllers.isEmpty)
+            XCTAssertEqual(outerHost.toastPresentationController.presentedViewControllers.count, 1)
+        }
+    }
+
+    func test_stopping_passthrough_moves_toast_from_ancestor_to_nested_host() {
+        let innerHost = makeToastHost()
+        let outerHost = makeToastHost()
+        nest(innerHost, in: outerHost)
+
+        let lifetime = innerHost.contentToastPresenter.present(
+            UIViewController(),
+            style: .init(ToastPresentationStyleFixture()),
+            accessibilityAnnouncement: "Toast."
+        )
+        defer { lifetime.dismiss() }
+
+        show(vc: outerHost) { outerHost in
+            innerHost.view.layoutIfNeeded()
+            XCTAssertTrue(innerHost.toastPresentationController.presentedViewControllers.isEmpty)
+            XCTAssertEqual(outerHost.toastPresentationController.presentedViewControllers.count, 1)
+
+            innerHost.update(
+                screen: .init(
+                    content: EmptyScreen(),
+                    toastContainerStyle: .fixture,
+                    shouldPassthroughToasts: false
+                )
+            )
+            innerHost.view.layoutIfNeeded()
+            outerHost.view.layoutIfNeeded()
+
+            XCTAssertEqual(innerHost.toastPresentationController.presentedViewControllers.count, 1)
+            XCTAssertTrue(
+                outerHost.toastPresentationController.presentedViewControllers.isEmpty,
+                "The outer host must remove the stale forwarded toast when passthrough stops."
+            )
+        }
+    }
+
+    private func makeToastHost(
+        shouldPassthroughToasts: Bool = true
+    ) -> ModalHostContainer<EmptyScreen>.ViewController {
+        ModalHostContainer.ViewController(
+            screen: .init(
+                content: EmptyScreen(),
+                toastContainerStyle: .fixture,
+                shouldPassthroughToasts: shouldPassthroughToasts
+            ),
+            environment: .empty
+        )
+    }
+
+    private func nest(
+        _ innerHost: UIViewController,
+        in outerHost: ModalHostContainer<EmptyScreen>.ViewController
+    ) {
+        outerHost.content.addChild(innerHost)
+        outerHost.content.view.addSubview(innerHost.view)
+        innerHost.didMove(toParent: outerHost.content)
+    }
 }

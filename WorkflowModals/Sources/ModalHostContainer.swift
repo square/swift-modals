@@ -141,7 +141,9 @@ extension ModalHostContainer: Screen where Content: Screen {
 
     // TODO: This should be extracted from `ModalHostContainer<Content>` so its type isnt dependent on `<Content>`.
 
-    final class ViewController: ScreenViewController<ModalHostContainer>, ModalHost, ToastPresentationViewControllerDelegate {
+    final class ViewController: ScreenViewController<ModalHostContainer>, ModalHost, HostToastPresenting,
+        ToastPresentationViewControllerDelegate
+    {
         private(set) var content: UIViewController
         let modalPresentationController: ModalPresentationViewController
         let toastPresentationController: ToastPresentationViewController
@@ -183,6 +185,28 @@ extension ModalHostContainer: Screen where Content: Screen {
             updatePreferredContentSize()
         }
 
+        override func willMove(toParent parent: UIViewController?) {
+            let formerAncestorModalHost = parent == nil && hasPresentationFilter
+                ? ancestorModalHost
+                : nil
+
+            super.willMove(toParent: parent)
+
+            // A forwarding host is part of its ancestor's aggregated modal list. Invalidate that
+            // snapshot before detaching, while the former ancestor is still reachable.
+            formerAncestorModalHost?.setNeedsModalUpdate()
+        }
+
+        override func didMove(toParent parent: UIViewController?) {
+            super.didMove(toParent: parent)
+
+            // A host may already own presentations when it is attached to an active hierarchy.
+            // Ensure the new ancestor includes any forwarded presentations in its next update.
+            if parent != nil, hasPresentationFilter {
+                ancestorModalHost?.setNeedsModalUpdate()
+            }
+        }
+
         public override func viewWillLayoutSubviews() {
             super.viewWillLayoutSubviews()
             modalPresentationController.view.frame = view.bounds
@@ -200,7 +224,16 @@ extension ModalHostContainer: Screen where Content: Screen {
             )
 
             if previousScreen.presentationFilter?.identifier != screen.presentationFilter?.identifier {
+                let formerAncestorModalHost = previousScreen.presentationFilter != nil
+                    && screen.presentationFilter == nil
+                    ? ancestorModalHost
+                    : nil
+
                 setNeedsModalUpdate()
+
+                // `setNeedsModalUpdate()` only forwards through the current filter. If this host
+                // has stopped forwarding, the former ancestor still needs to remove its snapshot.
+                formerAncestorModalHost?.setNeedsModalUpdate()
             }
         }
 
@@ -289,6 +322,14 @@ extension ModalHostContainer: Screen where Content: Screen {
             // Some modals should be forwarded. Pass them through to aggregation.
             let modalList = content.aggregateModals()
             return presentationFilter.presentedByAncestor(modalList)
+        }
+
+        // MARK: HostToastPresenting
+
+        /// A `ToastPresenter` that presents toasts from the root of this host's content. See
+        /// [HostToastPresenting](x-source-tag://HostToastPresenting).
+        var contentToastPresenter: ToastPresenter {
+            content.toastPresenter
         }
 
         private var ancestorModalHost: ModalHost? {
