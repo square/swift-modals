@@ -50,8 +50,8 @@ public final class ModalHostContainerViewController: UIViewController, ModalHost
 
                 setNeedsModalUpdate()
 
-                // `setNeedsModalUpdate()` only forwards through the current filter. If this host
-                // has stopped forwarding, the former ancestor still needs to remove its snapshot.
+                // `setNeedsModalUpdate()` invalidates a previously tracked ancestor. If forwarding
+                // was never tracked, invalidate the ancestor still reachable through containment.
                 formerAncestorModalHost?.setNeedsModalUpdate()
             }
         }

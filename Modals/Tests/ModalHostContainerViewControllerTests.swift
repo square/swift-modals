@@ -209,6 +209,47 @@ final class ModalHostContainerViewControllerTests: XCTestCase {
         }
     }
 
+    func test_changing_forwarding_ancestor_invalidates_former_and_current_hosts() {
+        let innerContent = UIViewController()
+        let innerHost = ModalHostContainerViewController(content: innerContent)
+        let container = UIViewController()
+        let formerOuterHost = ModalHostContainerViewController(content: UIViewController())
+        let currentOuterHost = ModalHostContainerViewController(content: UIViewController())
+
+        formerOuterHost.content.addChild(container)
+        container.didMove(toParent: formerOuterHost.content)
+        container.addChild(innerHost)
+        innerHost.didMove(toParent: container)
+
+        let lifetime = innerContent.toastPresenter.present(
+            UIViewController(),
+            style: .init(ToastPresentationStyleFixture()),
+            accessibilityAnnouncement: "Toast."
+        )
+        defer { lifetime.dismiss() }
+
+        formerOuterHost.view.layoutIfNeeded()
+        currentOuterHost.view.layoutIfNeeded()
+        XCTAssertEqual(formerOuterHost.toastPresentation.presentedViewControllers.count, 1)
+        XCTAssertTrue(currentOuterHost.toastPresentation.presentedViewControllers.isEmpty)
+
+        // Reparent an intermediate container without loading or moving the inner host's view.
+        // Its next modal update must invalidate both the cached and newly resolved ancestors.
+        container.willMove(toParent: nil)
+        container.removeFromParent()
+        currentOuterHost.content.addChild(container)
+        container.didMove(toParent: currentOuterHost.content)
+        XCTAssertFalse(innerHost.isViewLoaded)
+
+        innerHost.setNeedsModalUpdate()
+        formerOuterHost.view.layoutIfNeeded()
+        currentOuterHost.view.layoutIfNeeded()
+
+        XCTAssertTrue(formerOuterHost.toastPresentation.presentedViewControllers.isEmpty)
+        XCTAssertEqual(currentOuterHost.toastPresentation.presentedViewControllers.count, 1)
+        XCTAssertEqual(innerContent.aggregateModals().toasts.count, 1)
+    }
+
     func test_stopping_forwarding_invalidates_former_ancestor_for_modal() {
         let innerContent = UIViewController()
         let innerHost = ModalHostContainerViewController(

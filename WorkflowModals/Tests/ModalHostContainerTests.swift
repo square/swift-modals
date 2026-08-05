@@ -459,6 +459,46 @@ class ModalHostContainerTests: XCTestCase {
         }
     }
 
+    func test_changing_forwarding_ancestor_invalidates_former_and_current_hosts() {
+        let innerHost = makeToastHost()
+        let container = UIViewController()
+        let formerOuterHost = makeToastHost()
+        let currentOuterHost = makeToastHost()
+
+        formerOuterHost.content.addChild(container)
+        container.didMove(toParent: formerOuterHost.content)
+        container.addChild(innerHost)
+        innerHost.didMove(toParent: container)
+
+        let lifetime = innerHost.content.toastPresenter.present(
+            UIViewController(),
+            style: .init(ToastPresentationStyleFixture()),
+            accessibilityAnnouncement: "Toast."
+        )
+        defer { lifetime.dismiss() }
+
+        formerOuterHost.view.layoutIfNeeded()
+        currentOuterHost.view.layoutIfNeeded()
+        XCTAssertEqual(formerOuterHost.toastPresentationController.presentedViewControllers.count, 1)
+        XCTAssertTrue(currentOuterHost.toastPresentationController.presentedViewControllers.isEmpty)
+
+        // Reparent an intermediate container without loading or moving the inner host's view.
+        // Its next modal update must invalidate both the cached and newly resolved ancestors.
+        container.willMove(toParent: nil)
+        container.removeFromParent()
+        currentOuterHost.content.addChild(container)
+        container.didMove(toParent: currentOuterHost.content)
+        XCTAssertFalse(innerHost.isViewLoaded)
+
+        innerHost.setNeedsModalUpdate()
+        formerOuterHost.view.layoutIfNeeded()
+        currentOuterHost.view.layoutIfNeeded()
+
+        XCTAssertTrue(formerOuterHost.toastPresentationController.presentedViewControllers.isEmpty)
+        XCTAssertEqual(currentOuterHost.toastPresentationController.presentedViewControllers.count, 1)
+        XCTAssertEqual(innerHost.content.aggregateModals().toasts.count, 1)
+    }
+
     func test_stopping_forwarding_invalidates_former_ancestor_for_modal() {
         let innerHost = makeModalFilteringHost()
         let outerHost = makeToastHost()
