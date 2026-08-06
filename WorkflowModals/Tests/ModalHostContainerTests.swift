@@ -391,6 +391,9 @@ class ModalHostContainerTests: XCTestCase {
         )
         defer { lifetime.dismiss() }
 
+        innerHost.view.layoutIfNeeded()
+        XCTAssertEqual(innerHost.toastPresentationController.presentedViewControllers.count, 1)
+
         show(vc: outerHost) { outerHost in
             XCTAssertTrue(outerHost.toastPresentationController.presentedViewControllers.isEmpty)
 
@@ -421,9 +424,11 @@ class ModalHostContainerTests: XCTestCase {
             innerHost.willMove(toParent: nil)
             innerHost.view.removeFromSuperview()
             innerHost.removeFromParent()
+            innerHost.view.layoutIfNeeded()
             outerHost.view.layoutIfNeeded()
 
             XCTAssertEqual(innerHost.content.aggregateModals().toasts.count, 1)
+            XCTAssertEqual(innerHost.toastPresentationController.presentedViewControllers.count, 1)
             XCTAssertTrue(outerHost.toastPresentationController.presentedViewControllers.isEmpty)
         }
     }

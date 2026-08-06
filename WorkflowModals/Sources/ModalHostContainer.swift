@@ -279,13 +279,20 @@ extension ModalHostContainer: Screen where Content: Screen {
 
         // MARK: ModalHost
 
+        /// Marks this host's local presentations for recomputation and notifies any forwarding
+        /// ancestor that its aggregated presentation snapshot may have changed.
         func setNeedsModalUpdate() {
+            setNeedsLocalModalUpdate()
+            setForwardingAncestorModalHostNeedsUpdate()
+        }
+
+        /// Marks only this host's presentation controllers for recomputation on their next layout,
+        /// without propagating the invalidation to an ancestor.
+        private func setNeedsLocalModalUpdate() {
             needsModalUpdate = true
 
             viewIfLoaded?.setNeedsLayout()
             modalPresentationController.viewIfLoaded?.setNeedsLayout()
-
-            setForwardingAncestorModalHostNeedsUpdate()
         }
 
         private func updateModalsIfNeeded() {
@@ -343,6 +350,8 @@ extension ModalHostContainer: Screen where Content: Screen {
             }
         }
 
+        /// Reconciles the tracked forwarding ancestor with the current hierarchy, invalidating any
+        /// former or current ancestor snapshot and refreshing local filtering when it changes.
         private func setForwardingAncestorModalHostNeedsUpdate() {
             let currentAncestorModalHost = hasPresentationFilter ? ancestorModalHost : nil
 
@@ -350,6 +359,9 @@ extension ModalHostContainer: Screen where Content: Screen {
                 // The former host may still display this host's last forwarded snapshot.
                 forwardingAncestorModalHost?.setNeedsModalUpdate()
                 forwardingAncestorModalHost = currentAncestorModalHost
+
+                // Local filtering changes depending on whether presentations can be forwarded.
+                setNeedsLocalModalUpdate()
             }
 
             // Some presentations may be forwarded to the current ancestor host.
@@ -359,6 +371,11 @@ extension ModalHostContainer: Screen where Content: Screen {
         private func clearForwardingAncestorModalHost(fallback: ModalHost? = nil) {
             let formerAncestorModalHost = forwardingAncestorModalHost ?? fallback
             forwardingAncestorModalHost = nil
+
+            if formerAncestorModalHost != nil {
+                // Without an ancestor, presentations that were forwarded must become local again.
+                setNeedsLocalModalUpdate()
+            }
 
             // A forwarding host is part of its ancestor's aggregated modal list. Invalidate that
             // snapshot while the former ancestor is still reachable.
