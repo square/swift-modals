@@ -31,6 +31,7 @@ public final class ModalHostContainerViewController: UIViewController, ModalHost
 
     private var needsModalUpdate = true
     private var isInModalUpdate = false
+    private weak var forwardingAncestorModalHost: ModalHost?
 
     var logger = ModalsLogging.logger
 
@@ -43,7 +44,15 @@ public final class ModalHostContainerViewController: UIViewController, ModalHost
     public var presentationFilter: ModalPresentationFilter? {
         didSet {
             if presentationFilter?.identifier != oldValue?.identifier {
+                let formerAncestorModalHost = oldValue != nil && presentationFilter == nil
+                    ? ancestorModalHost
+                    : nil
+
                 setNeedsModalUpdate()
+
+                // `setNeedsModalUpdate()` invalidates a previously tracked ancestor. If forwarding
+                // was never tracked, invalidate the ancestor still reachable through containment.
+                formerAncestorModalHost?.setNeedsModalUpdate()
             }
         }
     }
@@ -98,6 +107,9 @@ public final class ModalHostContainerViewController: UIViewController, ModalHost
             },
             presentationViews: { [unowned modalPresentation, unowned toastPresentation] in
                 [modalPresentation, toastPresentation].map { $0.view }
+            },
+            windowDidChange: { [weak self] window in
+                self?.modalHostWindowDidChange(window)
             }
         )
 
@@ -118,6 +130,26 @@ public final class ModalHostContainerViewController: UIViewController, ModalHost
         super.viewDidLoad()
 
         updatePreferredContentSize()
+    }
+
+    public override func willMove(toParent parent: UIViewController?) {
+        if parent == nil {
+            clearForwardingAncestorModalHost(
+                fallback: hasPresentationFilter ? ancestorModalHost : nil
+            )
+        }
+
+        super.willMove(toParent: parent)
+    }
+
+    public override func didMove(toParent parent: UIViewController?) {
+        super.didMove(toParent: parent)
+
+        // A host may already own presentations when it is attached to an active hierarchy.
+        // Ensure the new ancestor includes any forwarded presentations in its next update.
+        if parent != nil {
+            setForwardingAncestorModalHostNeedsUpdate()
+        }
     }
 
     public override func viewWillLayoutSubviews() {
@@ -182,17 +214,20 @@ public final class ModalHostContainerViewController: UIViewController, ModalHost
 
     // MARK: ModalHost
 
+    /// Marks this host's local presentations for recomputation and notifies any forwarding
+    /// ancestor that its aggregated presentation snapshot may have changed.
     public func setNeedsModalUpdate() {
+        setNeedsLocalModalUpdate()
+        setForwardingAncestorModalHostNeedsUpdate()
+    }
+
+    /// Marks only this host's presentation controllers for recomputation on their next layout,
+    /// without propagating the invalidation to an ancestor.
+    private func setNeedsLocalModalUpdate() {
         needsModalUpdate = true
 
         viewIfLoaded?.setNeedsLayout()
         modalPresentation.viewIfLoaded?.setNeedsLayout()
-
-        if hasPresentationFilter, let ancestorModalHost {
-            // Some modals may be forwarded to an ancestor host.
-            // Inform it so that it may update.
-            ancestorModalHost.setNeedsModalUpdate()
-        }
     }
 
     private func updateModalsIfNeeded() {
@@ -240,6 +275,48 @@ public final class ModalHostContainerViewController: UIViewController, ModalHost
         presentationFilter != nil
     }
 
+    private func modalHostWindowDidChange(_ window: UIWindow?) {
+        if window == nil {
+            // An indirect containment removal does not call `willMove(toParent:)` on this host.
+            // Its view still leaves the window, so invalidate the ancestor cached while attached.
+            clearForwardingAncestorModalHost()
+        } else {
+            setForwardingAncestorModalHostNeedsUpdate()
+        }
+    }
+
+    /// Reconciles the tracked forwarding ancestor with the current hierarchy, invalidating any
+    /// former or current ancestor snapshot and refreshing local filtering when it changes.
+    private func setForwardingAncestorModalHostNeedsUpdate() {
+        let currentAncestorModalHost = hasPresentationFilter ? ancestorModalHost : nil
+
+        if forwardingAncestorModalHost !== currentAncestorModalHost {
+            // The former host may still display this host's last forwarded snapshot.
+            forwardingAncestorModalHost?.setNeedsModalUpdate()
+            forwardingAncestorModalHost = currentAncestorModalHost
+
+            // Local filtering changes depending on whether presentations can be forwarded.
+            setNeedsLocalModalUpdate()
+        }
+
+        // Some presentations may be forwarded to the current ancestor host.
+        forwardingAncestorModalHost?.setNeedsModalUpdate()
+    }
+
+    private func clearForwardingAncestorModalHost(fallback: ModalHost? = nil) {
+        let formerAncestorModalHost = forwardingAncestorModalHost ?? fallback
+        forwardingAncestorModalHost = nil
+
+        if formerAncestorModalHost != nil {
+            // Without an ancestor, presentations that were forwarded must become local again.
+            setNeedsLocalModalUpdate()
+        }
+
+        // A forwarding host is part of its ancestor's aggregated modal list. Invalidate that
+        // snapshot while the former ancestor is still reachable.
+        formerAncestorModalHost?.setNeedsModalUpdate()
+    }
+
     // MARK: ToastPresentationViewControllerDelegate
 
     public func toastPresentationViewControllerDidChange(hasVisiblePresentations: Bool) {
@@ -270,15 +347,18 @@ private final class ModalHostView: UIView {
     private let passthroughSizeThatFits: (CGSize) -> CGSize
     private let ancestorPresentationView: () -> UIView?
     private let presentationViews: () -> [UIView]
+    private let windowDidChange: (UIWindow?) -> Void
 
     init(
         frame: CGRect,
         sizeThatFits: @escaping (CGSize) -> CGSize,
         ancestorPresentationView: @escaping () -> UIView?,
-        presentationViews: @escaping () -> [UIView]
+        presentationViews: @escaping () -> [UIView],
+        windowDidChange: @escaping (UIWindow?) -> Void
     ) {
         self.ancestorPresentationView = ancestorPresentationView
         self.presentationViews = presentationViews
+        self.windowDidChange = windowDidChange
         passthroughSizeThatFits = sizeThatFits
 
         super.init(frame: frame)
@@ -286,6 +366,11 @@ private final class ModalHostView: UIView {
 
     required init?(coder: NSCoder) {
         fatalError()
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        windowDidChange(window)
     }
 
     override func sizeThatFits(_ size: CGSize) -> CGSize {

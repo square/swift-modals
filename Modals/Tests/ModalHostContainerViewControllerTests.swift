@@ -125,6 +125,176 @@ final class ModalHostContainerViewControllerTests: XCTestCase {
             )
         }
     }
+
+    func test_attaching_forwarding_host_invalidates_ancestor_for_existing_toast() {
+        let innerContent = UIViewController()
+        let innerHost = ModalHostContainerViewController(content: innerContent)
+        let outerHost = ModalHostContainerViewController(content: UIViewController())
+
+        let lifetime = innerContent.toastPresenter.present(
+            UIViewController(),
+            style: .init(ToastPresentationStyleFixture()),
+            accessibilityAnnouncement: "Toast."
+        )
+        defer { lifetime.dismiss() }
+
+        innerHost.view.layoutIfNeeded()
+        XCTAssertEqual(innerHost.toastPresentation.presentedViewControllers.count, 1)
+
+        show(vc: outerHost) { outerHost in
+            XCTAssertTrue(outerHost.toastPresentation.presentedViewControllers.isEmpty)
+
+            nest(innerHost, in: outerHost)
+            outerHost.view.layoutIfNeeded()
+
+            XCTAssertTrue(innerHost.toastPresentation.presentedViewControllers.isEmpty)
+            XCTAssertEqual(outerHost.toastPresentation.presentedViewControllers.count, 1)
+        }
+    }
+
+    func test_removing_forwarding_host_invalidates_ancestor_for_toast() {
+        let innerContent = UIViewController()
+        let innerHost = ModalHostContainerViewController(content: innerContent)
+        let outerHost = ModalHostContainerViewController(content: UIViewController())
+        nest(innerHost, in: outerHost)
+
+        let lifetime = innerContent.toastPresenter.present(
+            UIViewController(),
+            style: .init(ToastPresentationStyleFixture()),
+            accessibilityAnnouncement: "Toast."
+        )
+        defer { lifetime.dismiss() }
+
+        show(vc: outerHost) { outerHost in
+            innerHost.view.layoutIfNeeded()
+            XCTAssertEqual(outerHost.toastPresentation.presentedViewControllers.count, 1)
+
+            innerHost.willMove(toParent: nil)
+            innerHost.view.removeFromSuperview()
+            innerHost.removeFromParent()
+            innerHost.view.layoutIfNeeded()
+            outerHost.view.layoutIfNeeded()
+
+            XCTAssertEqual(innerContent.aggregateModals().toasts.count, 1)
+            XCTAssertEqual(innerHost.toastPresentation.presentedViewControllers.count, 1)
+            XCTAssertTrue(outerHost.toastPresentation.presentedViewControllers.isEmpty)
+        }
+    }
+
+    func test_removing_ancestor_of_forwarding_host_invalidates_outer_host_for_toast() {
+        let innerContent = UIViewController()
+        let innerHost = ModalHostContainerViewController(content: innerContent)
+
+        let container = UIViewController()
+        container.addChild(innerHost)
+        container.view.addSubview(innerHost.view)
+        innerHost.didMove(toParent: container)
+
+        let outerHost = ModalHostContainerViewController(content: UIViewController())
+        nest(container, in: outerHost)
+
+        let lifetime = innerContent.toastPresenter.present(
+            UIViewController(),
+            style: .init(ToastPresentationStyleFixture()),
+            accessibilityAnnouncement: "Toast."
+        )
+        defer { lifetime.dismiss() }
+
+        show(vc: outerHost) { outerHost in
+            innerHost.view.layoutIfNeeded()
+            XCTAssertEqual(outerHost.toastPresentation.presentedViewControllers.count, 1)
+
+            container.willMove(toParent: nil)
+            container.view.removeFromSuperview()
+            container.removeFromParent()
+            outerHost.view.layoutIfNeeded()
+
+            XCTAssertEqual(innerContent.aggregateModals().toasts.count, 1)
+            XCTAssertTrue(outerHost.toastPresentation.presentedViewControllers.isEmpty)
+        }
+    }
+
+    func test_changing_forwarding_ancestor_invalidates_former_and_current_hosts() {
+        let innerContent = UIViewController()
+        let innerHost = ModalHostContainerViewController(content: innerContent)
+        let container = UIViewController()
+        let formerOuterHost = ModalHostContainerViewController(content: UIViewController())
+        let currentOuterHost = ModalHostContainerViewController(content: UIViewController())
+
+        formerOuterHost.content.addChild(container)
+        container.didMove(toParent: formerOuterHost.content)
+        container.addChild(innerHost)
+        innerHost.didMove(toParent: container)
+
+        let lifetime = innerContent.toastPresenter.present(
+            UIViewController(),
+            style: .init(ToastPresentationStyleFixture()),
+            accessibilityAnnouncement: "Toast."
+        )
+        defer { lifetime.dismiss() }
+
+        formerOuterHost.view.layoutIfNeeded()
+        currentOuterHost.view.layoutIfNeeded()
+        XCTAssertEqual(formerOuterHost.toastPresentation.presentedViewControllers.count, 1)
+        XCTAssertTrue(currentOuterHost.toastPresentation.presentedViewControllers.isEmpty)
+
+        // Reparent an intermediate container without loading or moving the inner host's view.
+        // Its next modal update must invalidate both the cached and newly resolved ancestors.
+        container.willMove(toParent: nil)
+        container.removeFromParent()
+        currentOuterHost.content.addChild(container)
+        container.didMove(toParent: currentOuterHost.content)
+        XCTAssertFalse(innerHost.isViewLoaded)
+
+        innerHost.setNeedsModalUpdate()
+        formerOuterHost.view.layoutIfNeeded()
+        currentOuterHost.view.layoutIfNeeded()
+
+        XCTAssertTrue(formerOuterHost.toastPresentation.presentedViewControllers.isEmpty)
+        XCTAssertEqual(currentOuterHost.toastPresentation.presentedViewControllers.count, 1)
+        XCTAssertEqual(innerContent.aggregateModals().toasts.count, 1)
+    }
+
+    func test_stopping_forwarding_invalidates_former_ancestor_for_modal() {
+        let innerContent = UIViewController()
+        let innerHost = ModalHostContainerViewController(
+            content: innerContent,
+            toastContainerStyle: .fixture,
+            presentationFilter: .containsUniqueKey(TestModalInfoKey.self)
+        )
+        let outerHost = ModalHostContainerViewController(content: UIViewController())
+        nest(innerHost, in: outerHost)
+
+        let lifetime = innerContent.modalPresenter.present(
+            UIViewController(),
+            style: .testFull(),
+            info: .empty(),
+            completion: nil
+        )
+        defer { lifetime.dismiss() }
+
+        show(vc: outerHost) { outerHost in
+            innerHost.view.layoutIfNeeded()
+            XCTAssertTrue(innerHost.modalPresentation.presentedViewControllers.isEmpty)
+            XCTAssertEqual(outerHost.modalPresentation.presentedViewControllers.count, 1)
+
+            innerHost.presentationFilter = nil
+            innerHost.view.layoutIfNeeded()
+            outerHost.view.layoutIfNeeded()
+
+            XCTAssertEqual(innerHost.modalPresentation.presentedViewControllers.count, 1)
+            XCTAssertTrue(outerHost.modalPresentation.presentedViewControllers.isEmpty)
+        }
+    }
+
+    private func nest(
+        _ child: UIViewController,
+        in outerHost: ModalHostContainerViewController
+    ) {
+        outerHost.content.addChild(child)
+        outerHost.content.view.addSubview(child.view)
+        child.didMove(toParent: outerHost.content)
+    }
 }
 
 private enum TestModalInfoKey: UniqueModalInfoKey {}

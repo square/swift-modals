@@ -148,6 +148,10 @@ extension ModalHostContainer: Screen where Content: Screen {
 
         private var needsModalUpdate = true
         private var isInModalUpdate = false
+        private weak var forwardingAncestorModalHost: ModalHost?
+        private lazy var modalHostWindowObserverView = ModalHostWindowObserverView { [weak self] window in
+            self?.modalHostWindowDidChange(window)
+        }
 
         required init(screen: ModalHostContainer, environment: ViewEnvironment) {
             content = screen
@@ -175,12 +179,33 @@ extension ModalHostContainer: Screen where Content: Screen {
 
             modalPresentationController.view.frame = view.bounds
             view.addSubview(modalPresentationController.view)
+            view.addSubview(modalHostWindowObserverView)
 
             addOrRemoveToastPresentationSubviewIfNecessary(
                 hasVisiblePresentations: toastPresentationController.hasVisiblePresentations
             )
 
             updatePreferredContentSize()
+        }
+
+        override func willMove(toParent parent: UIViewController?) {
+            if parent == nil {
+                clearForwardingAncestorModalHost(
+                    fallback: hasPresentationFilter ? ancestorModalHost : nil
+                )
+            }
+
+            super.willMove(toParent: parent)
+        }
+
+        override func didMove(toParent parent: UIViewController?) {
+            super.didMove(toParent: parent)
+
+            // A host may already own presentations when it is attached to an active hierarchy.
+            // Ensure the new ancestor includes any forwarded presentations in its next update.
+            if parent != nil {
+                setForwardingAncestorModalHostNeedsUpdate()
+            }
         }
 
         public override func viewWillLayoutSubviews() {
@@ -200,7 +225,16 @@ extension ModalHostContainer: Screen where Content: Screen {
             )
 
             if previousScreen.presentationFilter?.identifier != screen.presentationFilter?.identifier {
+                let formerAncestorModalHost = previousScreen.presentationFilter != nil
+                    && screen.presentationFilter == nil
+                    ? ancestorModalHost
+                    : nil
+
                 setNeedsModalUpdate()
+
+                // `setNeedsModalUpdate()` invalidates a previously tracked ancestor. If forwarding
+                // was never tracked, invalidate the ancestor still reachable through containment.
+                formerAncestorModalHost?.setNeedsModalUpdate()
             }
         }
 
@@ -245,17 +279,20 @@ extension ModalHostContainer: Screen where Content: Screen {
 
         // MARK: ModalHost
 
+        /// Marks this host's local presentations for recomputation and notifies any forwarding
+        /// ancestor that its aggregated presentation snapshot may have changed.
         func setNeedsModalUpdate() {
+            setNeedsLocalModalUpdate()
+            setForwardingAncestorModalHostNeedsUpdate()
+        }
+
+        /// Marks only this host's presentation controllers for recomputation on their next layout,
+        /// without propagating the invalidation to an ancestor.
+        private func setNeedsLocalModalUpdate() {
             needsModalUpdate = true
 
             viewIfLoaded?.setNeedsLayout()
             modalPresentationController.viewIfLoaded?.setNeedsLayout()
-
-            if hasPresentationFilter, let ancestorModalHost {
-                // Some modals may be forwarded to an ancestor host.
-                // Inform it so that it may update.
-                ancestorModalHost.setNeedsModalUpdate()
-            }
         }
 
         private func updateModalsIfNeeded() {
@@ -303,6 +340,48 @@ extension ModalHostContainer: Screen where Content: Screen {
             screen.presentationFilter != nil
         }
 
+        private func modalHostWindowDidChange(_ window: UIWindow?) {
+            if window == nil {
+                // An indirect containment removal does not call `willMove(toParent:)` on this host.
+                // Its view still leaves the window, so invalidate the ancestor cached while attached.
+                clearForwardingAncestorModalHost()
+            } else {
+                setForwardingAncestorModalHostNeedsUpdate()
+            }
+        }
+
+        /// Reconciles the tracked forwarding ancestor with the current hierarchy, invalidating any
+        /// former or current ancestor snapshot and refreshing local filtering when it changes.
+        private func setForwardingAncestorModalHostNeedsUpdate() {
+            let currentAncestorModalHost = hasPresentationFilter ? ancestorModalHost : nil
+
+            if forwardingAncestorModalHost !== currentAncestorModalHost {
+                // The former host may still display this host's last forwarded snapshot.
+                forwardingAncestorModalHost?.setNeedsModalUpdate()
+                forwardingAncestorModalHost = currentAncestorModalHost
+
+                // Local filtering changes depending on whether presentations can be forwarded.
+                setNeedsLocalModalUpdate()
+            }
+
+            // Some presentations may be forwarded to the current ancestor host.
+            forwardingAncestorModalHost?.setNeedsModalUpdate()
+        }
+
+        private func clearForwardingAncestorModalHost(fallback: ModalHost? = nil) {
+            let formerAncestorModalHost = forwardingAncestorModalHost ?? fallback
+            forwardingAncestorModalHost = nil
+
+            if formerAncestorModalHost != nil {
+                // Without an ancestor, presentations that were forwarded must become local again.
+                setNeedsLocalModalUpdate()
+            }
+
+            // A forwarding host is part of its ancestor's aggregated modal list. Invalidate that
+            // snapshot while the former ancestor is still reachable.
+            formerAncestorModalHost?.setNeedsModalUpdate()
+        }
+
         // MARK: ToastPresentationViewControllerDelegate
 
         func toastPresentationViewControllerDidChange(hasVisiblePresentations: Bool) {
@@ -335,6 +414,27 @@ extension ModalHostContainer: Screen where Content: Screen {
 
             self.preferredContentSize = preferredContentSize
         }
+    }
+}
+
+private final class ModalHostWindowObserverView: UIView {
+    private let windowDidChange: (UIWindow?) -> Void
+
+    init(windowDidChange: @escaping (UIWindow?) -> Void) {
+        self.windowDidChange = windowDidChange
+        super.init(frame: .zero)
+        isHidden = true
+        isUserInteractionEnabled = false
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        windowDidChange(window)
     }
 }
 
