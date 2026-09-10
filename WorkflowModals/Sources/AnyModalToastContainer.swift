@@ -58,7 +58,7 @@ extension AnyModalToastContainer: SingleScreenContaining {
 /// view controller will remain.
 ///
 @_spi(WorkflowModalsImplementation)
-public final class AnyModalToastContainerViewController: ScreenViewController<AnyModalToastContainer> {
+public final class AnyModalToastContainerViewController: ScreenViewController<AnyModalToastContainer>, ScreenContentProviding {
 
     // This variable is used to keep track of whether we need to notify the modal host of an
     // update. This is used since we might be rendered without a modal host, but want to notify
@@ -78,6 +78,9 @@ public final class AnyModalToastContainerViewController: ScreenViewController<An
     private var manager: AnyPresentedModalsManager?
 
     private(set) var baseViewController: UIViewController
+
+    /// Only the base participates in content integrations. Presented modals/toasts are separate screens.
+    public let screenContent: ScreenContentLifecycle
 
     public override var wrappedContentViewController: UIViewController? {
         baseViewController
@@ -123,6 +126,7 @@ public final class AnyModalToastContainerViewController: ScreenViewController<An
         baseViewController = screen
             .base
             .buildViewController(in: environment)
+        screenContent = ScreenContentLifecycle(viewController: baseViewController)
 
         super.init(screen: screen, environment: environment)
 
@@ -160,7 +164,12 @@ public final class AnyModalToastContainerViewController: ScreenViewController<An
 
         let environment = environment
 
-        update(child: \.baseViewController, with: screen.base, in: environment)
+        update(
+            child: \.baseViewController,
+            with: screen.base,
+            in: environment,
+            prepareReplacement: { [screenContent] in screenContent.replace(with: $0) }
+        )
 
         // If the manager hasn't been initialized yet that means an aggregation hasn't occurred yet. We'll wait until an
         // aggregation occurs and perform the initial update in `aggregateModals`' lazy update of the manager.
