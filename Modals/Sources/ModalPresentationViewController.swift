@@ -72,6 +72,9 @@ public final class ModalPresentationViewController: UIViewController {
     private var focusRestorationStorage = FocusRestorationStorage()
 
     private var allPresentations: [Presentation] = []
+    private var modalUpdateDepth = 0
+    private var removalCallbacks: [() -> Void] = []
+    private var isDeliveringRemovalCallbacks = false
     /// The last size for which we performed a layout on our presentations.
     private var lastLaidOutSize: CGSize?
     private var isTrackingScrollViewDismiss = false
@@ -125,6 +128,7 @@ public final class ModalPresentationViewController: UIViewController {
         view.addSubview(content.view)
 
         for presentation in allPresentations {
+            presentation.containerViewController.presentationView = presentationView
             addChild(presentation.containerViewController)
             view.addSubview(presentation.containerView)
             presentation.containerViewController.didMove(toParent: self)
@@ -138,6 +142,7 @@ public final class ModalPresentationViewController: UIViewController {
         tapGestureRecognizer.addTarget(self, action: #selector(handleTap))
 
         updatePreferredContentSize()
+        updateTopPresentation()
     }
 
     public override func viewWillAppear(_ animated: Bool) {
@@ -222,11 +227,12 @@ public final class ModalPresentationViewController: UIViewController {
         return Presentation(
             viewController: modal.viewController,
             onDidPresent: modal.onDidPresent,
+            onDidRemove: modal.onDidRemove,
             style: style,
             containerVisibility: visibility,
             behaviorPreferences: behaviorPreferences,
             transitionState: transitionState,
-            presentationView: presentationView,
+            presentationView: ancestorPresentationView ?? viewIfLoaded,
             accessibilityDismissal: accessibilityDismissal
         )
     }
@@ -236,6 +242,12 @@ public final class ModalPresentationViewController: UIViewController {
     /// New modals will begin their enter transition, removed modals with begin their outgoing
     /// transition, and changed modals will be updated.
     public func update(modals: [PresentableModal]) {
+        modalUpdateDepth += 1
+        defer {
+            modalUpdateDepth -= 1
+            deliverRemovalCallbacksIfNeeded()
+        }
+
         let oldTopPresentation = topmostPresentation
 
         let oldStatusBarAppearanceSource = topmostViewController(
@@ -263,6 +275,7 @@ public final class ModalPresentationViewController: UIViewController {
 
                 oldPresentation.style = style
                 oldPresentation.behaviorPreferences = style.behaviorPreferences(for: behaviorContext())
+                oldPresentation.onDidRemove = modal.onDidRemove
 
                 newPresentations.append(oldPresentation)
             } else {
@@ -331,7 +344,14 @@ public final class ModalPresentationViewController: UIViewController {
 
     private func updatePresentations(oldTopPresentation: Presentation?) {
 
-        guard isViewLoaded else { return }
+        guard isViewLoaded else {
+            // An accepted modal can be withdrawn before any views are loaded. Retire it now so
+            // loading the presenter later cannot attach content that is no longer requested.
+            for presentation in allPresentations where presentation.transitionState == .pendingExit {
+                remove(presentation: presentation)
+            }
+            return
+        }
 
         updateFirstResponderAndAccessibilityFocus()
 
@@ -541,6 +561,8 @@ public final class ModalPresentationViewController: UIViewController {
     }
 
     private func updateTopPresentation() {
+        guard isViewLoaded else { return }
+
         if let topPresentation = topmostPresentation {
 
             let behavior = topPresentation.behaviorPreferences
@@ -739,6 +761,7 @@ public final class ModalPresentationViewController: UIViewController {
 
             postAccessibilityScreenChangedNotification()
             completion?()
+            deliverRemovalCallbacksIfNeeded()
         }
 
         presentation.transitionState = .exiting(animator)
@@ -746,23 +769,50 @@ public final class ModalPresentationViewController: UIViewController {
     }
 
     private func remove(presentation: Presentation) {
+        guard allPresentations.contains(where: { $0 === presentation }) else { return }
+
+        let onDidRemove = presentation.onDidRemove
+        presentation.onDidRemove = nil
 
         // Presentations must be in the terminal state before being removed, to ensure lifecycle
         // methods have been called. If the presentation is already in this state, this will have no
         // effect.
         presentation.transitionState = .pendingRemoval
 
-        presentation.containerView.removeFromSuperview()
+        presentation.containerViewController.viewIfLoaded?.removeFromSuperview()
         presentation.containerViewController.removeFromParent()
-        presentation.overlayView.removeFromSuperview()
+        (presentation.containerViewController.viewIfLoaded as? ContainerView)?.overlayView.removeFromSuperview()
         presentation.decorationViews.forEach { $0.removeFromSuperview() }
 
-        allPresentations.removeAll { $0.viewController === presentation.viewController }
+        allPresentations.removeAll { $0 === presentation }
 
         // Re-evaluate accessibilityViewIsModal after removal.
         // The removed presentation may have held the flag, leaving the
         // remaining top presentation with accessibilityViewIsModal = false.
-        updateAccessibilityViewIsModal()
+        if isViewLoaded {
+            updateAccessibilityViewIsModal()
+        }
+
+        if let onDidRemove {
+            removalCallbacks.append(onDidRemove)
+        }
+    }
+
+    private func deliverRemovalCallbacksIfNeeded() {
+        guard modalUpdateDepth == 0, !isDeliveringRemovalCallbacks else { return }
+
+        // A callback may immediately update the modal list. Drain only after reconciliation, and
+        // keep callbacks produced by a reentrant update behind the ones already waiting.
+        isDeliveringRemovalCallbacks = true
+        defer { isDeliveringRemovalCallbacks = false }
+
+        while !removalCallbacks.isEmpty {
+            let callbacks = removalCallbacks
+            removalCallbacks.removeAll()
+            for callback in callbacks {
+                callback()
+            }
+        }
     }
 
     private func setUpTransitionIn(presentation: Presentation) {
@@ -1917,6 +1967,7 @@ extension ModalPresentationViewController {
         let containerViewController: ContainerViewController
         let viewController: UIViewController
         let onDidPresent: (() -> Void)?
+        var onDidRemove: (() -> Void)?
 
         var style: ModalPresentationStyle
 
@@ -2023,6 +2074,7 @@ extension ModalPresentationViewController {
         init(
             viewController: UIViewController,
             onDidPresent: (() -> Void)?,
+            onDidRemove: (() -> Void)?,
             style: ModalPresentationStyle,
             containerVisibility: Visibility,
             behaviorPreferences: ModalBehaviorPreferences,
@@ -2041,12 +2093,13 @@ extension ModalPresentationViewController {
 
             self.viewController = viewController
             self.onDidPresent = onDidPresent
+            self.onDidRemove = onDidRemove
             self.style = style
             self.containerVisibility = containerVisibility
             self.behaviorPreferences = behaviorPreferences
 
             self.transitionState = transitionState
-            containerView.accessibilityDismissal = accessibilityDismissal
+            containerViewController.accessibilityDismissal = accessibilityDismissal
         }
 
         deinit {
@@ -2319,6 +2372,8 @@ extension ModalPresentationViewController {
     ///
     class ContainerViewController: UIViewController {
 
+        var accessibilityDismissal: Presentation.AccessibilityDismissal?
+
         var behaviorPreferences: ModalBehaviorPreferences {
             didSet {
                 updateNeedsPreferredContentSize()
@@ -2332,7 +2387,9 @@ extension ModalPresentationViewController {
         fileprivate let content: UIViewController
 
         override func loadView() {
-            view = ContainerView(modalView: content.view)
+            let containerView = ContainerView(modalView: content.view)
+            containerView.accessibilityDismissal = accessibilityDismissal
+            view = containerView
         }
 
         init(
@@ -2383,6 +2440,8 @@ extension ModalPresentationViewController {
         }
 
         private func updateAdditionalSafeAreaInsets() {
+            guard isViewLoaded else { return }
+
             guard let presentationView else {
                 if additionalSafeAreaInsets != .zero {
                     additionalSafeAreaInsets = .zero

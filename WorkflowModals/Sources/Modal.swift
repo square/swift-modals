@@ -22,17 +22,24 @@ public struct Modal<Content> {
     /// The content of the modal.
     public var content: Content
 
+    /// Called after the modal is physically removed from an individual presenter, independent of
+    /// appearance state. This does not indicate that the content's owner has ended, and forwarding
+    /// may leave the content presented by another host. See `PresentableModal.onDidRemove`.
+    public var onDidRemove: (() -> Void)?
+
     /// Create a new modal.
     public init(
         key: some Hashable,
         style: ModalPresentationStyleProvider,
         info: ModalInfo = .empty(),
+        onDidRemove: (() -> Void)? = nil,
         content: Content
     ) {
         self.key = AnyHashable(key)
         self.style = style
         self.info = info
         self.content = content
+        self.onDidRemove = onDidRemove
     }
 
     /// Convenience init for creating a modal with a static presentation style.
@@ -40,12 +47,14 @@ public struct Modal<Content> {
         key: some Hashable,
         style: ModalPresentationStyle,
         info: ModalInfo = .empty(),
+        onDidRemove: (() -> Void)? = nil,
         content: Content
     ) {
         self.init(
             key: key,
             style: .init(style),
             info: info,
+            onDidRemove: onDidRemove,
             content: content
         )
     }
@@ -62,6 +71,7 @@ public struct Modal<Content> {
         Modal<NewContent>(
             key: key,
             style: style,
+            onDidRemove: onDidRemove,
             content: transform(content)
         )
     }
@@ -72,12 +82,14 @@ extension Modal where Content: ModalPresentable {
     /// `ModalPresentable`. The style specified by the screen will be used for this modal.
     public init(
         key: some Hashable,
+        onDidRemove: (() -> Void)? = nil,
         content: Content
     ) {
         self.init(
             key: key,
             style: content.presentationStyle,
             info: content.info,
+            onDidRemove: onDidRemove,
             content: content
         )
     }
@@ -91,6 +103,7 @@ extension Modal where Content: Screen {
             key: key,
             style: style,
             info: info,
+            onDidRemove: onDidRemove,
             content: content.asAnyScreen()
         )
     }
@@ -107,12 +120,14 @@ extension Modal where Content == AnyScreen {
         key: some Hashable,
         style: ModalPresentationStyleProvider,
         info: ModalInfo = .empty(),
+        onDidRemove: (() -> Void)? = nil,
         screen: some Screen
     ) {
         self.init(
             key: key,
             style: style,
             info: info,
+            onDidRemove: onDidRemove,
             content: AnyScreen(screen)
         )
     }
@@ -123,12 +138,14 @@ extension Modal where Content == AnyScreen {
         key: some Hashable,
         style: ModalPresentationStyle,
         info: ModalInfo = .empty(),
+        onDidRemove: (() -> Void)? = nil,
         screen: some Screen
     ) {
         self.init(
             key: key,
             style: .init(style),
             info: info,
+            onDidRemove: onDidRemove,
             content: AnyScreen(screen)
         )
     }
@@ -138,12 +155,14 @@ extension Modal where Content == AnyScreen {
     /// The provided screen will be wrapped in an `AnyScreen` instance.
     public init(
         key: some Hashable,
+        onDidRemove: (() -> Void)? = nil,
         screen: some Screen & ModalPresentable
     ) {
         self.init(
             key: key,
             style: screen.presentationStyle,
             info: screen.info,
+            onDidRemove: onDidRemove,
             content: AnyScreen(screen)
         )
     }
@@ -156,12 +175,14 @@ extension Screen {
     public func modal(
         key: AnyHashable,
         style: ModalPresentationStyleProvider,
-        info: ModalInfo = .empty()
+        info: ModalInfo = .empty(),
+        onDidRemove: (() -> Void)? = nil
     ) -> Modal<Self> {
         Modal(
             key: key,
             style: style,
             info: info,
+            onDidRemove: onDidRemove,
             content: self
         )
     }
@@ -173,8 +194,9 @@ extension Screen where Self: ModalPresentable {
 
     /// Wraps the modal presentable screen with the given key.
     public func modal(
-        key: AnyHashable
+        key: AnyHashable,
+        onDidRemove: (() -> Void)? = nil
     ) -> Modal<Self> {
-        Modal(key: key, content: self)
+        Modal(key: key, onDidRemove: onDidRemove, content: self)
     }
 }

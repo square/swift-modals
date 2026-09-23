@@ -7,6 +7,77 @@ import XCTest
 
 final class ModalContainerTests: XCTestCase {
 
+    func test_removal_callback_survives_mapping_type_erasure_and_controller_reuse() throws {
+        func screen(onDidRemove: (() -> Void)?) -> ModalContainer<EmptyScreen, AnyScreen> {
+            ModalContainer(
+                base: EmptyScreen(),
+                modals: [Modal(
+                    key: "modal",
+                    style: FullScreenModalStyle(),
+                    onDidRemove: onDidRemove,
+                    content: EmptyScreen()
+                ).map { $0.asAnyScreen() }]
+            )
+        }
+
+        var callbacks: [String] = []
+        let description = screen { callbacks.append("original") }.viewControllerDescription(environment: .empty)
+        let container = try XCTUnwrap(description.buildViewController() as? AnyModalToastContainerViewController)
+        container.view.layoutIfNeeded()
+
+        let presenter = ModalPresentationViewController(content: UIViewController())
+        let original = try XCTUnwrap(container.aggregateModals().modals.first)
+        presenter.update(modals: [original])
+
+        screen { callbacks.append("updated") }.viewControllerDescription(environment: .empty)
+            .update(viewController: container)
+        container.view.layoutIfNeeded()
+        let updated = try XCTUnwrap(container.aggregateModals().modals.first)
+        XCTAssertTrue(original.viewController === updated.viewController)
+        presenter.update(modals: [updated])
+        XCTAssertTrue(callbacks.isEmpty)
+        presenter.update(modals: [])
+        XCTAssertEqual(callbacks, ["updated"])
+
+        presenter.update(modals: [updated])
+        screen(onDidRemove: nil).viewControllerDescription(environment: .empty)
+            .update(viewController: container)
+        container.view.layoutIfNeeded()
+        presenter.update(modals: container.aggregateModals().modals)
+        presenter.update(modals: [])
+        XCTAssertEqual(callbacks, ["updated"])
+    }
+
+    func test_removal_callbacks_for_duplicate_keys_follow_reused_controllers() throws {
+        func screen(callbacks: [() -> Void]) -> ModalContainer<EmptyScreen, EmptyScreen> {
+            ModalContainer(
+                base: EmptyScreen(),
+                modals: callbacks.map { callback in
+                    Modal(key: "shared", style: FullScreenModalStyle(), onDidRemove: callback, content: EmptyScreen())
+                }
+            )
+        }
+
+        var callbacks: [String] = []
+        let description = screen(callbacks: [{ callbacks.append("first") }, { callbacks.append("second") }])
+            .viewControllerDescription(environment: .empty)
+        let container = try XCTUnwrap(description.buildViewController() as? AnyModalToastContainerViewController)
+        container.view.layoutIfNeeded()
+        let originalControllers = container.aggregateModals().modals.map(\.viewController)
+        let presenter = ModalPresentationViewController(content: UIViewController())
+        presenter.update(modals: container.aggregateModals().modals)
+
+        screen(callbacks: [{ callbacks.append("updated first") }]).viewControllerDescription(environment: .empty)
+            .update(viewController: container)
+        container.view.layoutIfNeeded()
+        let remaining = container.aggregateModals().modals
+        XCTAssertEqual(remaining.map(\.viewController), [originalControllers[0]])
+        presenter.update(modals: remaining)
+        XCTAssertEqual(callbacks, ["second"])
+        presenter.update(modals: [])
+        XCTAssertEqual(callbacks, ["second", "updated first"])
+    }
+
     func test_modal_updates() throws {
 
         let modalScreen = ModalContainer(

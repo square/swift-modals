@@ -35,16 +35,28 @@ public final class PresentableModal {
     /// A closure that will be called after the modal has been presented.
     public let onDidPresent: (() -> Void)?
 
+    /// Called at most once after this presentation's container and decorations have been removed from a
+    /// presenter and its presentation bookkeeping has been updated, regardless of appearance state.
+    /// The latest callback supplied for the same view controller is used, including nil.
+    ///
+    /// This is local to each presenter: forwarding to a different host may remove a presentation
+    /// from the former host while the content remains presented elsewhere. Hiding a window or
+    /// destroying a presenter does not deliver this callback. A modal withdrawn before a presenter
+    /// accepts it has no presentation to remove and does not deliver it either.
+    public let onDidRemove: (() -> Void)?
+
     /// Create a new modal.
     public init(
         viewController: UIViewController,
         presentationStyle: ModalPresentationStyle,
         info: ModalInfo,
+        onDidRemove: (() -> Void)? = nil,
         onDidPresent: (() -> Void)?
     ) {
         self.viewController = viewController
         self.presentationStyle = presentationStyle
         self.info = info
+        self.onDidRemove = onDidRemove
         self.onDidPresent = onDidPresent
     }
 }
