@@ -35,14 +35,17 @@ public final class PresentableModal {
     /// A closure that will be called after the modal has been presented.
     public let onDidPresent: (() -> Void)?
 
-    /// Called at most once after this presentation's container and decorations have been removed from a
-    /// presenter and its presentation bookkeeping has been updated, regardless of appearance state.
-    /// The latest callback supplied for the same view controller is used, including nil.
+    /// Called at most once after a presenter removes this presentation's container and decorations
+    /// and updates its bookkeeping, regardless of appearance state. The latest callback supplied
+    /// for the same view controller before removal is used, including nil.
     ///
-    /// This is local to each presenter: forwarding to a different host may remove a presentation
-    /// from the former host while the content remains presented elsewhere. Hiding a window or
-    /// destroying a presenter does not deliver this callback. A modal withdrawn before a presenter
-    /// accepts it has no presentation to remove and does not deliver it either.
+    /// This reports one presenter's physical removal, not whether the content is still requested.
+    /// Forwarding can leave the content in another host. Requesting the same controller during its
+    /// exit does not cancel that removal; a subsequent update can create a new presentation.
+    ///
+    /// Merely hiding a window does not trigger this callback, but removal while hidden does.
+    /// Presenter destruction does not guarantee delivery. A modal withdrawn before a presenter
+    /// receives it has no presentation to remove and produces no callback.
     public let onDidRemove: (() -> Void)?
 
     /// Create a new modal.
@@ -51,6 +54,7 @@ public final class PresentableModal {
         presentationStyle: ModalPresentationStyle,
         info: ModalInfo,
         onDidRemove: (() -> Void)? = nil,
+        // Keep this last and non-defaulted so existing trailing closures still observe presentation.
         onDidPresent: (() -> Void)?
     ) {
         self.viewController = viewController

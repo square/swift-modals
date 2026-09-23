@@ -23,7 +23,7 @@ public struct Modal<Content> {
     public var content: Content
 
     /// Called after the modal is physically removed from an individual presenter, independent of
-    /// appearance state. This does not indicate that the content's owner has ended, and forwarding
+    /// appearance state. This does not mean the workflow that rendered it has finished, and forwarding
     /// may leave the content presented by another host. See `PresentableModal.onDidRemove`.
     public var onDidRemove: (() -> Void)?
 

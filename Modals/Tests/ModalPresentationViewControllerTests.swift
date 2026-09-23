@@ -149,6 +149,73 @@ final class ModalPresentationViewControllerTests: XCTestCase {
         XCTAssertEqual(callbacks, ["first", "second", "first again"])
     }
 
+    func test_removalCallback_loaded_uses_latest_callback_including_nil() throws {
+        let subject = ModalPresentationViewController(content: UIViewController())
+        subject.loadViewIfNeeded()
+        let presented = UIViewController()
+        var callbacks: [String] = []
+
+        for callback in [({ callbacks.append("updated") }), nil] as [(() -> Void)?] {
+            subject.update(modals: [removalModal(for: presented) { callbacks.append("original") }])
+            let presentation = try XCTUnwrap(subject.topmostPresentation)
+            finishTransition(presentation)
+            subject.update(modals: [removalModal(for: presented, onDidRemove: callback)])
+            subject.update(modals: [])
+            finishTransition(presentation)
+        }
+
+        XCTAssertEqual(callbacks, ["updated"])
+    }
+
+    func test_removalCallback_requested_again_during_exit_still_removes_old_instance() throws {
+        let subject = ModalPresentationViewController(content: UIViewController())
+        subject.loadViewIfNeeded()
+        let presented = UIViewController()
+        var callbacks: [String] = []
+        subject.update(modals: [removalModal(for: presented) { callbacks.append("original") }])
+        let oldPresentation = try XCTUnwrap(subject.topmostPresentation)
+        finishTransition(oldPresentation)
+        subject.update(modals: [])
+
+        let requestedAgain = removalModal(for: presented) { callbacks.append("updated") }
+        subject.update(modals: [requestedAgain])
+        XCTAssertTrue(presented.parent === oldPresentation.containerViewController)
+        guard case .exiting = oldPresentation.transitionState else {
+            return XCTFail("A renewed request must not cancel an in-flight exit")
+        }
+        XCTAssertTrue(callbacks.isEmpty)
+        finishTransition(oldPresentation)
+        XCTAssertEqual(callbacks, ["updated"])
+        XCTAssertFalse(subject.hasModals)
+        XCTAssertNil(oldPresentation.containerViewController.parent)
+
+        subject.update(modals: [requestedAgain])
+        let newPresentation = try XCTUnwrap(subject.topmostPresentation)
+        XCTAssertFalse(newPresentation === oldPresentation)
+        finishTransition(newPresentation)
+        subject.update(modals: [])
+        finishTransition(newPresentation)
+        XCTAssertEqual(callbacks, ["updated", "updated"])
+    }
+
+    func test_removalCallback_pending_removal_still_requested_is_retired() throws {
+        let subject = ModalPresentationViewController(content: UIViewController())
+        subject.loadViewIfNeeded()
+        let presented = UIViewController()
+        var callbacks: [String] = []
+        subject.update(modals: [removalModal(for: presented) { callbacks.append("original") }])
+        let presentation = try XCTUnwrap(subject.topmostPresentation)
+        finishTransition(presentation)
+
+        // Model an interactive exit that finished before the producer withdrew its rendering.
+        presentation.transitionState = .pendingRemoval
+        subject.update(modals: [removalModal(for: presented) { callbacks.append("updated") }])
+
+        XCTAssertEqual(callbacks, ["updated"])
+        XCTAssertFalse(subject.hasModals)
+        XCTAssertNil(presentation.containerViewController.parent)
+    }
+
     func test_removalCallback_removing_during_entry_and_repeated_exit_updates() throws {
         let subject = ModalPresentationViewController(content: UIViewController())
         subject.loadViewIfNeeded()
