@@ -6,6 +6,7 @@ struct TestFullScreenStyle: ModalPresentationStyle {
     var identifier: String? = nil
     var viewControllerContainmentPreferences: ModalBehaviorPreferences.ViewControllerContainmentPreferences = .default
     var environmentCustomization: (inout ViewEnvironment) -> Void = { _ in }
+    var animation: ModalAnimation = .spring()
 
     func behaviorPreferences(for context: ModalBehaviorContext) -> ModalBehaviorPreferences {
         ModalBehaviorPreferences(
@@ -19,11 +20,11 @@ struct TestFullScreenStyle: ModalPresentationStyle {
     }
 
     func enterTransitionValues(for context: ModalPresentationContext) -> ModalTransitionValues {
-        ModalTransitionValues(frame: context.containerCoordinateSpace.bounds)
+        ModalTransitionValues(frame: context.containerCoordinateSpace.bounds, animation: animation)
     }
 
     func exitTransitionValues(for context: ModalPresentationContext) -> ModalTransitionValues {
-        ModalTransitionValues(frame: context.containerCoordinateSpace.bounds)
+        ModalTransitionValues(frame: context.containerCoordinateSpace.bounds, animation: animation)
     }
 
     func customize(environment: inout ViewEnvironment) {

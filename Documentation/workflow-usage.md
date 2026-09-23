@@ -91,3 +91,42 @@ struct ModalScreen: Screen {
 ```
 
 ![card-modal](card-modal.gif)
+
+## Observe physical removal
+
+Removing a modal from the rendering requests its dismissal. To run work after its container has
+actually left a presenter, supply `onDidRemove`:
+
+```swift
+Modal(
+    key: "details",
+    style: MyModalStyle(),
+    onDidRemove: { sink.send(.detailsRemoved) },
+    content: detailsScreen
+)
+```
+
+The callback runs after the container and decorations are detached and the presenter's bookkeeping
+is updated. Unlike `viewDidDisappear`, it does not depend on whether the presenter was visible.
+Re-rendering the same modal updates its callback, including clearing it with nil. Removal uses the
+last callback received by the presenter before physical removal. Keep the callback's recipient
+alive if it needs to receive the event after the modal's own workflow has stopped rendering.
+
+This acknowledgement is **local to one presenter**, not an end-of-lifetime event for the content:
+
+- A forwarding change can remove a modal from one host while another host presents the same content.
+  Each presenter's instance has its own removal callback.
+- Requesting the same content again while its presentation is exiting does not cancel that exit.
+  Its latest callback still runs when the old instance is removed, even though the content is wanted
+  again. The next update can create a new presentation. The same applies to an interactive exit that
+  has finished visually but is waiting for reconciliation. Check the current rendering state or a
+  request identifier before treating the callback as completion of application work.
+- Hiding a window, losing appearance, or cancelling an interactive dismissal does not remove a modal.
+- Destroying a presenter does not guarantee a callback. Manage owner cancellation separately.
+- If a presenter accepts a modal and then receives its withdrawal before loading, it retires the
+  instance without loading its views and calls the callback. A modal that is withdrawn before any
+  presenter accepts it has no physical instance to remove and produces no callback.
+
+Callbacks may update the modal list; they are delivered after the current update is coherent.
+Existing callers can omit `onDidRemove`. See [UIKit usage](uikit-usage.md#observe-physical-removal)
+for the direct `PresentableModal` API and the lifetime-token API's boundary.
