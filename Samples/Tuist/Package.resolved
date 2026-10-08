@@ -73,15 +73,6 @@
       }
     },
     {
-      "identity" : "swift-perception",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/pointfreeco/swift-perception",
-      "state" : {
-        "revision" : "d924c62a70fca5f43872f286dbd7cef0957f1c01",
-        "version" : "1.6.0"
-      }
-    },
-    {
       "identity" : "swift-syntax",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swiftlang/swift-syntax",
@@ -95,8 +86,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/square/workflow-swift",
       "state" : {
-        "revision" : "d31ae0d61ccd0e41be5b45c299696f087445da2d",
-        "version" : "6.0.0"
+        "branch" : "johnnewman/chore/CLF-526-workflow-ios-17-1",
+        "revision" : "053ab5568af38abaf9d1f4e9fb5d4fda296259a3"
       }
     },
     {
