@@ -85,7 +85,7 @@ class AccessibilityProxyTests: XCTestCase {
         XCTAssertEqual(content?.count, 1)
         XCTAssertEqual(content, item.accessibilityCustomContent)
 
-        // Return custom content when the source does not provide a block.
+        // accessibilityCustomContentBlock is preferred by voiceover if implemented, so we should return the content even if the proxied item doesn't implement it.
         let blockContent = proxy.accessibilityCustomContentBlock?()
         XCTAssertEqual(blockContent, content)
     }
