@@ -86,8 +86,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/square/workflow-swift",
       "state" : {
-        "branch" : "johnnewman/chore/CLF-526-workflow-ios-17-1",
-        "revision" : "7e1ad76776b69603d50c58f09247e18624da19c1"
+        "revision" : "08eb59a20b56a20a713a4ba53c1434a9751bbbf5",
+        "version" : "7.0.0"
       }
     },
     {
