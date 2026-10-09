@@ -123,3 +123,15 @@ class MyViewController: UIViewController {
 ```
 
 ![card-modal](card-modal.gif)
+
+## Observe physical removal
+
+Integrations that construct `PresentableModal` directly can supply its optional `onDidRemove`
+callback. It reports that one presenter has detached a presentation and updated its bookkeeping,
+independent of appearance state. It does not report global dismissal: forwarding or a renewed
+request can leave the content wanted elsewhere. See the
+[removal contract](workflow-usage.md#observe-physical-removal) for those boundaries.
+
+The lifetime-token API shown above does not expose a physical-removal callback.
+`ModalLifetime.dismiss()` and releasing the token remain dismissal requests, not completion signals.
+Appearance callbacks are not a substitute for physical-removal acknowledgement.

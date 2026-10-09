@@ -287,6 +287,68 @@ final class ModalHostContainerViewControllerTests: XCTestCase {
         }
     }
 
+    func test_removal_callback_is_local_when_forwarded_modal_moves_to_inner_host() throws {
+        class Content: UIViewController {
+            var modals: [PresentableModal] = []
+
+            override func aggregateModals() -> ModalList {
+                ModalList(modals: modals)
+            }
+        }
+
+        let content = Content()
+        let innerHost = ModalHostContainerViewController(
+            content: content,
+            toastContainerStyle: .fixture,
+            presentationFilter: .containsUniqueKey(TestModalInfoKey.self)
+        )
+        let outerHost = ModalHostContainerViewController(content: UIViewController())
+        nest(innerHost, in: outerHost)
+
+        let presented = UIViewController()
+        var count = 0
+        content.modals = [PresentableModal(
+            viewController: presented,
+            presentationStyle: TestFullScreenStyle(animation: .curve(.linear, duration: 1)),
+            info: .empty(),
+            onDidRemove: { count += 1 },
+            onDidPresent: nil
+        )]
+
+        try show(vc: outerHost) { outerHost in
+            innerHost.view.layoutIfNeeded()
+            let oldPresentation = try XCTUnwrap(outerHost.modalPresentation.topmostPresentation)
+            finishTransition(oldPresentation)
+
+            innerHost.presentationFilter = nil
+            innerHost.view.layoutIfNeeded()
+            outerHost.view.layoutIfNeeded()
+            finishTransition(oldPresentation)
+
+            XCTAssertEqual(count, 1)
+            XCTAssertNil(oldPresentation.containerViewController.parent)
+            XCTAssertEqual(content.aggregateModals().modals.count, 1)
+            XCTAssertEqual(innerHost.modalPresentation.presentedViewControllers, [presented])
+
+            let localPresentation = try XCTUnwrap(innerHost.modalPresentation.topmostPresentation)
+            finishTransition(localPresentation)
+            XCTAssertTrue(presented.parent === localPresentation.containerViewController)
+            XCTAssertFalse(localPresentation === oldPresentation)
+
+            content.modals = []
+            innerHost.setNeedsModalUpdate()
+            innerHost.view.layoutIfNeeded()
+            finishTransition(localPresentation)
+            XCTAssertEqual(count, 2, "Each presenter's instance has its own removal")
+        }
+    }
+
+    private func finishTransition(_ presentation: ModalPresentationViewController.Presentation) {
+        guard let animator = presentation.transitionState.animator, animator.state == .active else { return }
+        animator.stopAnimation(false)
+        animator.finishAnimation(at: .end)
+    }
+
     private func nest(
         _ child: UIViewController,
         in outerHost: ModalHostContainerViewController

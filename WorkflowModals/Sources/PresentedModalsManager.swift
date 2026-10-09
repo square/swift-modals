@@ -59,7 +59,8 @@ final class PresentedModalsManager<ModalContent: Screen, ToastContent: Screen> {
                     key: key,
                     viewController: existing.viewController,
                     style: style,
-                    info: modal.info
+                    info: modal.info,
+                    onDidRemove: modal.onDidRemove
                 )
 
                 newModals.append(modal)
@@ -75,7 +76,8 @@ final class PresentedModalsManager<ModalContent: Screen, ToastContent: Screen> {
                     key: key,
                     viewController: newViewController,
                     style: style,
-                    info: modal.info
+                    info: modal.info,
+                    onDidRemove: modal.onDidRemove
                 )
 
                 newModals.append(modal)
@@ -150,12 +152,14 @@ extension PresentedModalsManager {
         let viewController: UIViewController
         let style: ModalPresentationStyle
         let info: ModalInfo
+        let onDidRemove: (() -> Void)?
 
         var modal: PresentableModal {
             PresentableModal(
                 viewController: viewController,
                 presentationStyle: style,
                 info: info,
+                onDidRemove: onDidRemove,
                 onDidPresent: nil
             )
         }
@@ -164,12 +168,14 @@ extension PresentedModalsManager {
             key: PresentationKey,
             viewController: UIViewController,
             style: ModalPresentationStyle,
-            info: ModalInfo
+            info: ModalInfo,
+            onDidRemove: (() -> Void)?
         ) {
             self.key = key
             self.viewController = viewController
             self.style = style
             self.info = info
+            self.onDidRemove = onDidRemove
         }
     }
 
