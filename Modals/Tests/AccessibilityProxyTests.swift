@@ -85,14 +85,11 @@ class AccessibilityProxyTests: XCTestCase {
         XCTAssertEqual(content?.count, 1)
         XCTAssertEqual(content, item.accessibilityCustomContent)
 
-        if #available(iOS 17.0, *) {
-            // accessibilityCustomContentBlock is preferred by voiceover if implemented, so we should return the content even if the proxied item doesn't implement it.
-            let blockContent = proxy.accessibilityCustomContentBlock?()
-            XCTAssertEqual(blockContent, content)
-        }
+        // accessibilityCustomContentBlock is preferred by voiceover if implemented, so we should return the content even if the proxied item doesn't implement it.
+        let blockContent = proxy.accessibilityCustomContentBlock?()
+        XCTAssertEqual(blockContent, content)
     }
 
-    @available(iOS 17.0, *)
     func test_proxy_customContentBlock() {
         class BlockTestItem: NSObject, AXCustomContentProvider {
             var accessibilityCustomContent: [AXCustomContent]! = [

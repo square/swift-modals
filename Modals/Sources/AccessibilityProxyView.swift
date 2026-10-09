@@ -148,31 +148,26 @@ extension AccessibilityProxyView {
         }
 
 
-        @available(iOS 17.0, *)
         override var accessibilityLabelBlock: AXStringReturnBlock? {
             get { proxiedElement?.accessibilityLabelBlock }
             set { fatalError("Proxy view accessibility is not settable") }
         }
 
-        @available(iOS 17.0, *)
         override var accessibilityValueBlock: AXStringReturnBlock? {
             get { proxiedElement?.accessibilityValueBlock }
             set { fatalError("Proxy view accessibility is not settable") }
         }
 
-        @available(iOS 17.0, *)
         override var accessibilityHintBlock: AXStringReturnBlock? {
             get { proxiedElement?.accessibilityHintBlock }
             set { fatalError("Proxy view accessibility is not settable") }
         }
 
-        @available(iOS 17.0, *)
         override var accessibilityTraitsBlock: AXTraitsReturnBlock? {
             get { proxiedElement?.accessibilityTraitsBlock }
             set { fatalError("Proxy view accessibility is not settable") }
         }
 
-        @available(iOS 17.0, *)
         override var accessibilityIdentifierBlock: AXStringReturnBlock? {
             get { proxiedElement?.accessibilityIdentifierBlock }
             set { fatalError("Proxy view accessibility is not settable") }
@@ -187,7 +182,6 @@ extension AccessibilityProxyView.Proxy where T: AXCustomContentProvider {
         set { fatalError("Proxy view accessibility is not settable") }
     }
 
-    @available(iOS 17.0, *)
     var accessibilityCustomContentBlock: AXCustomContentReturnBlock? {
         get { proxiedElement?.accessibilityCustomContentBlock ?? { self.accessibilityCustomContent } }
         set { fatalError("Proxy view accessibility is not settable") }

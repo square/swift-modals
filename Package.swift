@@ -6,8 +6,8 @@ let package = Package(
     name: "Modals",
     defaultLocalization: "en",
     platforms: [
-        .macCatalyst(.v16),
-        .iOS(.v16),
+        .iOS("17.1"),
+        .macCatalyst(.v17),
     ],
     products: [
         .library(
@@ -22,7 +22,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-log", from: "1.4.4"),
         .package(url: "https://github.com/square/swift-keyboard-observer", from: "1.1.0"),
-        .package(url: "https://github.com/square/workflow-swift", from: "6.0.0"),
+        .package(url: "https://github.com/square/workflow-swift", from: "7.0.0"),
     ],
     targets: [
         .target(

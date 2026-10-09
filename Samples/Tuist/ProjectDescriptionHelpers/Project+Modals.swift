@@ -3,7 +3,7 @@ import ProjectDescription
 
 public let modalsBundleIdPrefix = "com.squareup.modals"
 public let modalsDestinations: ProjectDescription.Destinations = .iOS
-public let modalsDeploymentTargets: DeploymentTargets = .iOS("16.0")
+public let modalsDeploymentTargets: DeploymentTargets = .iOS("17.1")
 
 extension Target {
     public static func app(
