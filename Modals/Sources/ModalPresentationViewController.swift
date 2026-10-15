@@ -1851,12 +1851,12 @@ extension ModalPresentationViewController {
 
         override var isAccessibilityElement: Bool {
             get { false }
-            set {}
+            set { assertionFailure("Not settable") }
         }
 
         override var accessibilityContainerType: UIAccessibilityContainerType {
             get { onAccessibilityActivate != nil ? .semanticGroup : .none }
-            set {}
+            set { assertionFailure("Not settable") }
         }
 
         override var accessibilityLabel: String? {
