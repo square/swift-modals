@@ -1850,7 +1850,12 @@ extension ModalPresentationViewController {
         }
 
         override var isAccessibilityElement: Bool {
-            get { onAccessibilityActivate != nil }
+            get { false }
+            set { fatalError("Not settable") }
+        }
+
+        override var accessibilityContainerType: UIAccessibilityContainerType {
+            get { onAccessibilityActivate != nil ? .semanticGroup : .none }
             set { fatalError("Not settable") }
         }
 

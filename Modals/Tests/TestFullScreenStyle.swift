@@ -4,11 +4,13 @@ import ViewEnvironment
 struct TestFullScreenStyle: ModalPresentationStyle {
 
     var identifier: String? = nil
+    var overlayTap: ModalBehaviorPreferences.OverlayTapBehavior = .disabled
     var viewControllerContainmentPreferences: ModalBehaviorPreferences.ViewControllerContainmentPreferences = .default
     var environmentCustomization: (inout ViewEnvironment) -> Void = { _ in }
 
     func behaviorPreferences(for context: ModalBehaviorContext) -> ModalBehaviorPreferences {
         ModalBehaviorPreferences(
+            overlayTap: overlayTap,
             usesPreferredContentSize: false,
             viewControllerContainmentPreferences: viewControllerContainmentPreferences
         )

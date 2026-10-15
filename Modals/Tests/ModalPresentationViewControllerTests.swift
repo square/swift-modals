@@ -187,10 +187,52 @@ final class ModalPresentationViewControllerTests: XCTestCase {
         window.isHidden = true
     }
 
-    func modal(for vc: UIViewController) -> PresentableModal {
+    func test_overlay_dismissal_is_container() throws {
+        let content = UIViewController()
+        let subject = ModalPresentationViewController(content: content)
+
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 400, height: 800))
+        window.rootViewController = subject
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+
+        var dismissCount = 0
+        let style = TestFullScreenStyle(overlayTap: .dismiss(onDismiss: { dismissCount += 1 }))
+        subject.update(modals: [modal(for: UIViewController(), style: style)])
+
+        let container = try XCTUnwrap(
+            subject.view.subviews.compactMap { $0 as? ModalPresentationViewController.ContainerView }.first
+        )
+
+        let overlay = container.overlayView
+        XCTAssertIdentical(container.subviews.first, overlay)
+        XCTAssertFalse(overlay.isAccessibilityElement)
+        XCTAssertEqual(overlay.accessibilityContainerType, .semanticGroup)
+        XCTAssertTrue(overlay.subviews.isEmpty)
+        XCTAssertEqual(overlay.accessibilityLabel, "Dismiss popup")
+        XCTAssertEqual(overlay.accessibilityHint, "Double tap to dismiss popup window")
+
+        XCTAssertTrue(overlay.accessibilityActivate())
+        XCTAssertEqual(dismissCount, 1)
+    }
+
+    func test_overlay_without_dismissal_is_not_container() throws {
+        let subject = ModalPresentationViewController(content: UIViewController())
+        subject.loadViewIfNeeded()
+        subject.update(modals: [modal(for: UIViewController())])
+
+        let container = try XCTUnwrap(
+            subject.view.subviews.compactMap { $0 as? ModalPresentationViewController.ContainerView }.first
+        )
+
+        XCTAssertFalse(container.overlayView.isAccessibilityElement)
+        XCTAssertEqual(container.overlayView.accessibilityContainerType, .none)
+    }
+
+    func modal(for vc: UIViewController, style: TestFullScreenStyle = TestFullScreenStyle()) -> PresentableModal {
         PresentableModal(
             viewController: vc,
-            presentationStyle: TestFullScreenStyle(),
+            presentationStyle: style,
             info: .empty(),
             onDidPresent: nil
         )
