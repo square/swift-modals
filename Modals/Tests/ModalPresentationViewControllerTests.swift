@@ -209,6 +209,11 @@ final class ModalPresentationViewControllerTests: XCTestCase {
         XCTAssertFalse(overlay.isAccessibilityElement)
         XCTAssertEqual(overlay.accessibilityContainerType, .semanticGroup)
         XCTAssertTrue(overlay.subviews.isEmpty)
+
+        overlay.isAccessibilityElement = true
+        overlay.accessibilityContainerType = .none
+        XCTAssertFalse(overlay.isAccessibilityElement)
+        XCTAssertEqual(overlay.accessibilityContainerType, .semanticGroup)
         XCTAssertEqual(overlay.accessibilityLabel, "Dismiss popup")
         XCTAssertEqual(overlay.accessibilityHint, "Double tap to dismiss popup window")
 
