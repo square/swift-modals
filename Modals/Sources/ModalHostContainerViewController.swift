@@ -158,6 +158,8 @@ public final class ModalHostContainerViewController: UIViewController, ModalHost
         modalPresentation.view.frame = view.bounds
         toastPresentation.view.frame = view.bounds
 
+        modalPresentation.view.setNeedsLayout()
+
         updateModalsIfNeeded()
     }
 
@@ -340,6 +342,53 @@ public final class ModalHostContainerViewController: UIViewController, ModalHost
         {
             toastPresentation.view.removeFromSuperview()
         }
+    }
+}
+
+// MARK: - Presentation root content framing
+
+extension ModalHostContainerViewController {
+
+    /// How a host lays out its content inside its bounds.
+    public struct ContentFraming: Equatable {
+        /// Insets the content from the host's bounds.
+        public var insets: UIEdgeInsets
+        /// The color that fills the area between the host's bounds and the inset content, or `nil` for no fill.
+        public var fillColor: UIColor?
+
+        /// Create a content framing.
+        public init(insets: UIEdgeInsets, fillColor: UIColor? = nil) {
+            self.insets = insets
+            self.fillColor = fillColor
+        }
+    }
+
+    /// Frames the content of every host that is a presentation root (see ``isPresentationRoot``). Defaults to `nil`,
+    /// which lets the content fill the host.
+    ///
+    /// A host presented with UIKit, for example to show a view controller that is not yet a modal, covers whatever it
+    /// is presented over, outside any framing its presenter applies. Use this to keep that content out of an area
+    /// covered by system UI. The modal and toast presentations stay full size, so modals presented from the content
+    /// are laid out as before. The closure is called on every layout of the host's content, so its answer can change
+    /// at runtime; call `view.setNeedsLayout()` on affected hosts to apply a change right away. Return `nil` to let the
+    /// content fill the host.
+    public static var presentationRootContentFraming: (@MainActor (ModalHostContainerViewController) -> ContentFraming?)?
+
+    /// Whether this host is the root of a UIKit presentation: it has no parent, and it is the view controller its
+    /// presenter presents.
+    ///
+    /// A host that is a window's root view controller, or that is embedded in another view controller, is not a
+    /// presentation root.
+    public var isPresentationRoot: Bool {
+        parent == nil && presentingViewController?.presentedViewController === self
+    }
+
+    /// The framing of the content, if this host is a presentation root that frames it.
+    var contentFraming: ContentFraming? {
+        guard isPresentationRoot, let framing = Self.presentationRootContentFraming?(self) else {
+            return nil
+        }
+        return framing
     }
 }
 

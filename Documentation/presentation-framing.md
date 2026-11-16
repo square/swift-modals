@@ -1,0 +1,68 @@
+# Adjust presentation layout across an app
+
+An app can adapt modal and toast styles in one place. These APIs are optional. With no hooks installed and zero content insets, existing presentation layout and view hierarchies are unchanged.
+
+## Style transforms
+
+Install the transforms on the main actor before the first presentation:
+
+```swift
+ModalPresentationViewController.presentationStyleTransform = { style in
+    AppModalStyle(wrapping: style)
+}
+ToastPresentationViewController.containerStyleTransform = { style in
+    AppToastContainerStyle(wrapping: style)
+}
+```
+
+Each modal transform receives the original style resolved for the modal's environment, on presentation and on each modal update. The returned style controls presentation behavior, display values, decorations, and transitions. Updates do not pass an already transformed style back through the transform. Environment customization takes place before this hook, through the original style.
+
+The toast transform receives the style resolved by the toast container's provider whenever its environment is applied. The result is compared with the previous style through `isEqual(to:)`.
+
+Changing a transform does not update existing presentations immediately. Call `setNeedsModalUpdate()` on the modal host to update modal styles. For toast styles, call `setNeedsEnvironmentUpdate()` on the toast presentation controller.
+
+## Content insets and fill
+
+A full-screen presentation can keep its frame, overlay, and transition geometry while placing its content inside part of that frame:
+
+```swift
+var values = base.displayValues(for: context)
+values.contentInsets = UIEdgeInsets(
+    top: 0,
+    left: context.containerSafeAreaInsets.left,
+    bottom: 0,
+    right: context.containerSafeAreaInsets.right
+)
+values.contentInsetsFillColor = appBackgroundColor
+return values
+```
+
+The content view's frame is inset inside the presentation's clipping view. UIKit derives the content's safe area from that frame, so content that also respects its safe area does not receive the same inset twice. Shadows, rounded corners, decorations, and the dimming overlay retain the presentation's geometry. Content insets also apply during transitions.
+
+The optional fill covers only the area outside the content frame, including content that draws beyond its own bounds. It does not receive touches or appear in the accessibility tree. A dynamic `UIColor` can supply different colors for light and dark appearances. Set the color to `nil` for a transparent inset area.
+
+## Content of hosts presented by UIKit
+
+UIKit can present a `ModalHostContainerViewController` directly. Its root content can need the same framing as a full-screen modal:
+
+```swift
+ModalHostContainerViewController.presentationRootContentFraming = { host in
+    let insets = host.view.safeAreaInsets
+    return .init(
+        insets: UIEdgeInsets(top: 0, left: insets.left, bottom: 0, right: insets.right),
+        fillColor: appBackgroundColor
+    )
+}
+```
+
+The callback runs only for a host with no parent that is directly presented by a UIKit view controller. A window root host and an embedded host are excluded. The app must decide whether a particular UIKit presentation needs framing; return `nil` for a partial presentation whose presentation controller already sizes its content.
+
+The callback runs on each content layout and uses the host's own safe area. Modal and toast containers retain the full host size, so a presentation above the framed root can dim the full width and use its own style. To apply a change to the callback's result, mark the host view for layout.
+
+## Layout changes at runtime
+
+Modal and toast presentation controllers lay out again when the horizontal safe area changes, including changes in an ancestor presentation view. Changes to top and bottom insets alone retain the existing behavior.
+
+If state read by an installed style changes without a size or safe-area change, call `setNeedsPresentationLayout()` on each affected presentation controller. This recomputes layout with the current transformed style; it does not resolve or transform styles again. For toasts, this follows the size-change path, which cancels a drag and restarts auto-dismiss timers.
+
+App-specific style classification, safe-area policy, colors, and runtime switches belong in the app's wrappers. Modals supplies the layout hooks without imposing those choices.
