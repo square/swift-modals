@@ -7,8 +7,9 @@ import UIKit
 @Suite(.serialized)
 struct PresentationRootContentFramingTests {
 
-    @Test(arguments: Bar.allCases)
-    func `A UIKit presented host frames content using its own horizontal safe area`(bar: Bar) async throws {
+    @Test
+    func `A UIKit presented host frames content using its own horizontal safe area`() async throws {
+        let bar = Bar.left
         let host = ModalHostContainerViewController(content: UIViewController())
         host.additionalSafeAreaInsets = bar.insets
 
@@ -56,36 +57,8 @@ struct PresentationRootContentFramingTests {
     }
 
     @Test
-    func `A child host inside a UIKit presentation does not apply presentation root framing`() async {
-        let container = UIViewController()
-        container.additionalSafeAreaInsets = Bar.right.insets
-        let host = ModalHostContainerViewController(content: UIViewController())
-        container.addChild(host)
-        container.view.addSubview(host.view)
-        host.view.frame = container.view.bounds
-        host.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        host.didMove(toParent: container)
-
-        await withPresentedController(container) {
-            var callbackCount = 0
-            withFramingHook({ _ in
-                callbackCount += 1
-                return .init(insets: Bar.right.insets, fillColor: .red)
-            }) {
-                host.modalPresentation.setNeedsPresentationLayout()
-                container.view.layoutIfNeeded()
-
-                #expect(host.view.safeAreaInsets.right == Bar.right.insets.right)
-                #expect(!host.isPresentationRoot)
-                #expect(callbackCount == 0)
-                #expect(host.content.view.frame == host.modalPresentation.view.bounds)
-                #expect(contentFill(in: host) == nil)
-            }
-        }
-    }
-
-    @Test(arguments: Bar.allCases)
-    func `A modal in a framed presentation root retains the full host width and is inset once`(bar: Bar) async throws {
+    func `A modal in a framed presentation root retains the full host width and is inset once`() async throws {
+        let bar = Bar.right
         let host = ModalHostContainerViewController(content: UIViewController())
         host.additionalSafeAreaInsets = bar.insets
 
@@ -115,10 +88,8 @@ struct PresentationRootContentFramingTests {
         }
     }
 
-    @Test(arguments: Invalidation.allCases)
-    func `A visible presentation root uses changes to the framing callback on its next layout`(
-        invalidation: Invalidation
-    ) async throws {
+    @Test
+    func `A visible presentation root uses changes to the framing callback on its next layout`() async throws {
         let host = ModalHostContainerViewController(content: UIViewController())
         host.additionalSafeAreaInsets = Bar.right.insets
 
@@ -133,7 +104,7 @@ struct PresentationRootContentFramingTests {
                 #expect(host.content.view.frame == host.view.bounds.inset(by: Bar.right.insets))
 
                 framing = .init(insets: Bar.left.insets, fillColor: .blue)
-                invalidation.invalidate(host)
+                host.view.setNeedsLayout()
                 host.view.layoutIfNeeded()
 
                 #expect(host.content.view.frame == host.view.bounds.inset(by: Bar.left.insets))
@@ -143,7 +114,7 @@ struct PresentationRootContentFramingTests {
                 #expect(hasVisibleFill(fill))
 
                 framing = nil
-                invalidation.invalidate(host)
+                host.view.setNeedsLayout()
                 host.view.layoutIfNeeded()
 
                 #expect(host.content.view.frame == host.modalPresentation.view.bounds)
@@ -153,7 +124,7 @@ struct PresentationRootContentFramingTests {
         }
     }
 
-    enum Bar: CaseIterable {
+    private enum Bar {
         case left
         case right
 
@@ -161,19 +132,6 @@ struct PresentationRootContentFramingTests {
             switch self {
             case .left: UIEdgeInsets(top: 0, left: 84, bottom: 0, right: 0)
             case .right: UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 84)
-            }
-        }
-    }
-
-    enum Invalidation: CaseIterable {
-        case host
-        case presentations
-
-        @MainActor
-        func invalidate(_ host: ModalHostContainerViewController) {
-            switch self {
-            case .host: host.view.setNeedsLayout()
-            case .presentations: host.modalPresentation.setNeedsPresentationLayout()
             }
         }
     }

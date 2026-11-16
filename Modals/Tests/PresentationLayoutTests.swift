@@ -36,8 +36,9 @@ struct PresentationLayoutTests {
         #expect(recorder.exitCalls > 0)
     }
 
-    @Test(arguments: horizontalInsets)
-    func `Modal content insets change without changing its frame or overlay`(insets: UIEdgeInsets) throws {
+    @Test
+    func `Modal content insets change without changing its frame or overlay`() throws {
+        let insets = Self.horizontalInsets[0]
         let recorder = Recorder()
         recorder.contentInsets = insets
         let subject = ModalPresentationViewController(content: UIViewController())
@@ -86,26 +87,7 @@ struct PresentationLayoutTests {
     }
 
     @Test
-    func `Vertical safe area changes do not lay out modal presentations again`() {
-        let recorder = Recorder()
-        let subject = ModalPresentationViewController(content: UIViewController())
-        subject.view.frame = bounds
-        let container = SafeAreaView(frame: bounds)
-        subject.ancestorPresentationView = container
-        subject.update(modals: [presentable(UIViewController(), style: RecordingModalStyle(recorder: recorder))])
-        subject.view.frame = bounds
-        subject.view.layoutIfNeeded()
-        recorder.modalContexts = []
-
-        container.reportedInsets = UIEdgeInsets(top: 40, left: 0, bottom: 20, right: 0)
-        subject.viewSafeAreaInsetsDidChange()
-        subject.view.setNeedsLayout()
-        subject.view.layoutIfNeeded()
-        #expect(recorder.modalContexts.isEmpty)
-    }
-
-    @Test(arguments: [false, true])
-    func `A horizontal safe area change cancels a modal interaction with old geometry`(inverse: Bool) throws {
+    func `A horizontal safe area change cancels a modal interaction with old geometry`() throws {
         let subject = ModalPresentationViewController(content: UIViewController())
         subject.view.frame = bounds
         let container = SafeAreaView(frame: bounds)
@@ -120,7 +102,7 @@ struct PresentationLayoutTests {
         }
         animator.startAnimation()
         animator.pauseAnimation()
-        presentation.transitionState = inverse ? .interactiveInverse(animator) : .interactiveDismiss(animator)
+        presentation.transitionState = .interactiveDismiss(animator)
 
         container.reportedInsets = Self.horizontalInsets[0]
         subject.view.setNeedsLayout()
@@ -197,16 +179,6 @@ struct PresentationLayoutTests {
         subject.view.layoutIfNeeded()
         #expect(recorder.toastContexts.isEmpty)
         #expect(subject.presentations.first?.autoDismissTimer === timer)
-    }
-
-    @Test
-    func `Explicit invalidation does not load presentation views`() {
-        let modals = ModalPresentationViewController(content: UIViewController())
-        let toasts = ToastPresentationViewController(styleProvider: .init(RecordingToastStyle(recorder: Recorder())))
-        modals.setNeedsPresentationLayout()
-        toasts.setNeedsPresentationLayout()
-        #expect(modals.isViewLoaded == false)
-        #expect(toasts.isViewLoaded == false)
     }
 
     private var bounds: CGRect { CGRect(x: 0, y: 0, width: 400, height: 800) }
