@@ -87,34 +87,6 @@ struct PresentationLayoutTests {
     }
 
     @Test
-    func `A horizontal safe area change cancels a modal interaction with old geometry`() throws {
-        let subject = ModalPresentationViewController(content: UIViewController())
-        subject.view.frame = bounds
-        let container = SafeAreaView(frame: bounds)
-        subject.ancestorPresentationView = container
-        let modal = UIViewController()
-        subject.update(modals: [presentable(modal)])
-        subject.view.frame = bounds
-        subject.view.layoutIfNeeded()
-        let presentation = try #require(subject.topmostPresentation)
-        let animator = UIViewPropertyAnimator(duration: 1, curve: .linear) {
-            modal.view.alpha = 0
-        }
-        animator.startAnimation()
-        animator.pauseAnimation()
-        presentation.transitionState = .interactiveDismiss(animator)
-
-        container.reportedInsets = Self.horizontalInsets[0]
-        subject.view.setNeedsLayout()
-        subject.view.layoutIfNeeded()
-
-        #expect(!presentation.transitionState.isInteracting)
-        #expect(presentation.transitionState.animator == nil)
-        #expect(animator.state != .active)
-        #expect(subject.presentedViewControllers == [modal])
-    }
-
-    @Test
     func `Toast transform is applied to each style resolved from the environment`() {
         let previous = ToastPresentationViewController.containerStyleTransform
         defer { ToastPresentationViewController.containerStyleTransform = previous }

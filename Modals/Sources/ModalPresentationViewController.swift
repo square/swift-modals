@@ -942,12 +942,6 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
         if lastLaidOutSize != view.bounds.size {
             lastLaidOutSize = view.bounds.size
 
-            isTrackingScrollViewDismiss = false
-            panGestureRecognizer.state = .cancelled
-            for presentation in allPresentations where presentation.transitionState.isInteracting {
-                presentation.transitionState = .presented
-            }
-
             for presentation in allPresentations {
                 layout(
                     presentation: presentation,
@@ -982,8 +976,8 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
 
     /// Lays out the content and every presentation again on the next layout pass.
     ///
-    /// Call this when state read by a style changes without a size change. This cancels active dismissal interactions.
-    /// It uses the current transformed styles; update the host's modals to apply a new `presentationStyleTransform`.
+    /// Call this when state read by a style changes without a size change. It uses the current transformed styles;
+    /// update the host's modals to apply a new `presentationStyleTransform`.
     public func setNeedsPresentationLayout() {
         // Clearing the last size lays out every presentation in viewDidLayoutSubviews.
         lastLaidOutSize = nil
