@@ -12,7 +12,7 @@ import UIKit
 /// ## See Also:
 /// - [ModalHostContainerViewController](x-source-tag://ModalHostContainerViewController)
 @objc(MDLModalPresentationViewController)
-public final class ModalPresentationViewController: UIViewController {
+public final class ModalPresentationViewController: UIViewController, UIGestureRecognizerDelegate {
     /// The view controller of the topmost modal, or nil if no modal is being presented. This is the
     /// view controller that contextual view controller decisions (like status bar style and
     /// supported orientations) should be forwarded to.
@@ -134,6 +134,7 @@ public final class ModalPresentationViewController: UIViewController {
         updateFirstResponderAndAccessibilityFocus()
 
         view.addGestureRecognizer(panGestureRecognizer)
+        panGestureRecognizer.delegate = self
         panGestureRecognizer.addTarget(self, action: #selector(handlePan))
         tapGestureRecognizer.addTarget(self, action: #selector(handleTap))
 
@@ -1404,6 +1405,15 @@ public final class ModalPresentationViewController: UIViewController {
         return projectedFrame.origin.y >= destinationFrame.origin.y
     }
 
+    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        // Paging may settle without laying out the modal host again. Track the newly visible
+        // page before its scroll gesture begins, rather than retaining the outgoing page.
+        if gestureRecognizer === panGestureRecognizer, let topmostPresentation {
+            updateTrackedScrollView(for: topmostPresentation)
+        }
+        return true
+    }
+
     @objc private func handleTap(gesture: UITapGestureRecognizer) {
         guard let presentation = topmostPresentation else {
             return
@@ -2249,6 +2259,19 @@ extension UIView {
 
     private func recursiveFindScrollView() -> UIScrollView? {
         if let scrollView = self as? UIScrollView {
+            if scrollView.isPagingEnabled,
+               !scrollView.alwaysBounceVertical,
+               scrollView.contentSize.height <= scrollView.bounds.height
+            {
+                // A horizontal pager cannot drive vertical dismissal; its visible page can.
+                for subview in subviews where subview.frame.intersects(scrollView.bounds) {
+                    if let found = subview.recursiveFindScrollView() {
+                        return found
+                    }
+                }
+                return nil
+            }
+
 
             // Track the scroll view if:
             //
