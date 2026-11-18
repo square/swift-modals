@@ -22,7 +22,7 @@ struct ContentInsetsTests {
     }
 
     @Test
-    func `The fill covers overflowing content only outside the hole`() throws {
+    func `The fill covers overflowing content only outside the viewport`() throws {
         let content = UIView()
         let overflow = UIView(frame: CGRect(x: -30, y: -30, width: 180, height: 160))
         overflow.backgroundColor = .green
@@ -42,15 +42,15 @@ struct ContentInsetsTests {
     }
 
     @Test
-    func `Fill strips keep their edge when the inset moves to the other side`() throws {
+    func `Occlusion strips keep their edge when the inset moves to the other side`() throws {
         let fill = InsetFillView(frame: bounds)
         fill.fillColor = .blue
-        fill.holeFrame = CGRect(x: 20, y: 0, width: 100, height: 100)
+        fill.viewport = CGRect(x: 20, y: 0, width: 100, height: 100)
         fill.layoutIfNeeded()
         let originalStrips = fill.subviews
         let leftStrip = try #require(originalStrips.first { $0.frame == CGRect(x: 0, y: 0, width: 20, height: 100) })
 
-        fill.holeFrame = CGRect(x: 0, y: 0, width: 100, height: 100)
+        fill.viewport = CGRect(x: 0, y: 0, width: 100, height: 100)
         fill.layoutIfNeeded()
 
         let rightStrip = try #require(fill.subviews.first { $0.frame == CGRect(x: 100, y: 0, width: 20, height: 100) })

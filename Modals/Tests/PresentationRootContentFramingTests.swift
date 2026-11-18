@@ -28,7 +28,7 @@ struct PresentationRootContentFramingTests {
 
                 let fill = try #require(contentFill(in: host))
                 #expect(fill.frame == host.modalPresentation.view.bounds)
-                #expect(fill.holeFrame == host.content.view.frame)
+                #expect(fill.viewport == host.content.view.frame)
                 #expect(hasVisibleFill(fill))
             }
         }
@@ -110,7 +110,7 @@ struct PresentationRootContentFramingTests {
                 #expect(host.content.view.frame == host.view.bounds.inset(by: Bar.left.insets))
                 let fill = try #require(contentFill(in: host))
                 #expect(fill.fillColor == UIColor.blue)
-                #expect(fill.holeFrame == host.content.view.frame)
+                #expect(fill.viewport == host.content.view.frame)
                 #expect(hasVisibleFill(fill))
 
                 framing = nil

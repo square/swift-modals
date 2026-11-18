@@ -1270,7 +1270,7 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
         }
 
         fillView.frame = view.bounds
-        fillView.holeFrame = contentFrame
+        fillView.viewport = contentFrame
         fillView.fillColor = framing?.fillColor
     }
 
