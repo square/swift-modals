@@ -32,9 +32,11 @@ values.contentInsetsFillColor = appBackgroundColor
 return values
 ```
 
-The content view's frame is inset inside the presentation's clipping view. UIKit derives the content's safe area from that frame, so content that also respects its safe area does not receive the same inset twice. Shadows, rounded corners, decorations, and the dimming overlay retain the presentation's geometry. Content insets also apply during transitions.
+Content insets move the content's view itself, not just its safe area. The modal's view is laid out inside the inset frame, and everything in it moves with it: navigation stacks, child view controllers, and hosted SwiftUI views. Content that ignores its safe area, or pins its subviews to its own edges, still stays out of the inset area. UIKit derives the content's safe area from the inset frame, so content that also respects its safe area does not receive the same inset twice.
 
-The optional fill covers only the area outside the content frame, including content that draws beyond its own bounds. It does not receive touches or appear in the accessibility tree. A dynamic `UIColor` can supply different colors for light and dark appearances. Set the color to `nil` for a transparent inset area.
+Shadows, rounded corners, decorations, and the dimming overlay retain the presentation's geometry. Content insets also apply during transitions.
+
+The presentation clips its content at the presentation's frame, not at the inset content frame, so content that draws beyond its own bounds can still appear in the inset area. The optional fill covers the area outside the content frame, including anything the content draws there. It does not receive touches or appear in the accessibility tree. A dynamic `UIColor` can supply different colors for light and dark appearances. Set the color to `nil` for a transparent inset area, which leaves anything the content draws there visible.
 
 ## Content of hosts presented by UIKit
 
@@ -51,6 +53,8 @@ ModalHostContainerViewController.presentationRootContentFraming = { host in
 ```
 
 The callback runs only for a host with no parent that is directly presented by a UIKit view controller. A window root host and an embedded host are excluded. The app must decide whether a particular UIKit presentation needs framing; return `nil` for a partial presentation whose presentation controller already sizes its content.
+
+As with content insets, the framing moves the root content's view itself, so content that ignores its safe area moves too, and the content's safe area no longer includes the inset. Nothing clips the root content to its inset frame, so content that draws beyond its own bounds stays visible in the inset area unless the framing has a fill color.
 
 The callback runs on each content layout and uses the host's own safe area. Modal and toast containers retain the full host size, so a presentation above the framed root can dim the full width and use its own style. To apply a change to the callback's result, mark the host view for layout.
 

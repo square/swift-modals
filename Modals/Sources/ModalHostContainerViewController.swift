@@ -355,7 +355,8 @@ extension ModalHostContainerViewController {
 
     /// How a host lays out its content inside its bounds.
     public struct ContentFraming: Equatable {
-        /// Insets the content from the host's bounds.
+        /// Insets the content from the host's bounds. The insets move the content's view itself, so content that
+        /// ignores its safe area moves too.
         public var insets: UIEdgeInsets
         /// The color that fills the area between the host's bounds and the inset content, or `nil` for no fill.
         public var fillColor: UIColor?

@@ -23,9 +23,11 @@ public struct ModalDisplayValues {
     /// Insets that lay out the modal's content inside `frame`, rather than filling it. Defaults to `.zero`.
     ///
     /// Use this to keep content out of part of the modal, such as an area covered by system UI, without changing the
-    /// modal's frame or transitions. The content's safe area follows its inset frame.
+    /// modal's frame or transitions. The insets move the content's view itself, so content that ignores its safe area
+    /// moves too. The content's safe area follows its inset frame, so content that respects it is not inset twice.
     public var contentInsets: UIEdgeInsets
-    /// The color that fills the area between `frame` and the inset content. Defaults to `nil`, for no fill.
+    /// The color that fills the area between `frame` and the inset content, covering anything the content draws beyond
+    /// its bounds. Defaults to `nil`, for no fill.
     public var contentInsetsFillColor: UIColor?
 
     /// Create a new set of modal display values.
