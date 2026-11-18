@@ -56,13 +56,6 @@ public final class ToastPresentationViewController:
 
     private(set) var style: ToastContainerPresentationStyle?
 
-    /// Transforms the container style of every `ToastPresentationViewController` before it is used. Defaults to `nil`,
-    /// which uses the style from ``styleProvider`` as it is.
-    ///
-    /// Use this to adjust toast layout app-wide, for example to keep toasts out of an area covered by system UI. It is
-    /// called whenever the environment is applied, with the style ``styleProvider`` resolved for it.
-    public static var containerStyleTransform: ((ToastContainerPresentationStyle) -> ToastContainerPresentationStyle)?
-
     var presentations: [Presentation] = [] {
         didSet {
             // The delegate call back when visible presentations become present is called in `update(toasts:)` before we
@@ -83,10 +76,6 @@ public final class ToastPresentationViewController:
     private var lastKeyboardFrame: KeyboardFrame? = nil
 
     private var lastLaidOutSize: CGSize?
-
-    /// The left and right safe-area insets of the last safe-area change. Starts at zero, so a view without horizontal
-    /// insets never lays out again because of the safe area.
-    private var lastHorizontalSafeAreaInsets = HorizontalSafeAreaInsets(.zero)
 
     let feedbackGenerator = UINotificationFeedbackGenerator()
 
@@ -212,14 +201,12 @@ public final class ToastPresentationViewController:
     public override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
 
-        updateHorizontalSafeAreaInsets()
         applyEnvironmentIfNeeded()
     }
 
     public func apply(environment: ViewEnvironment) {
         let previousStyle = style
-        let providedStyle = styleProvider.style(for: environment)
-        let newStyle = Self.containerStyleTransform?(providedStyle) ?? providedStyle
+        let newStyle = styleProvider.style(for: environment)
         style = newStyle
 
         guard let previousStyle else {
@@ -347,7 +334,6 @@ public final class ToastPresentationViewController:
                         presentation: presentation,
                         transitionValues: displayValues.presentedValues[index]
                     )
-                    presentation.containerView.layoutIfNeeded()
 
 
                 case .updating(let animator):
@@ -405,31 +391,6 @@ public final class ToastPresentationViewController:
             updatePresentations()
             cleanupAfterSizeTransition()
         }
-    }
-
-    public override func viewSafeAreaInsetsDidChange() {
-        super.viewSafeAreaInsetsDidChange()
-
-        updateHorizontalSafeAreaInsets()
-    }
-
-    private func updateHorizontalSafeAreaInsets() {
-        let insets = HorizontalSafeAreaInsets(presentationView.safeAreaInsets)
-        guard insets != lastHorizontalSafeAreaInsets else { return }
-
-        lastHorizontalSafeAreaInsets = insets
-        setNeedsPresentationLayout()
-    }
-
-    /// Lays out every presentation again on the next layout pass.
-    ///
-    /// Call this when state read by a style changes without a size change. Like a size change, this cancels active
-    /// dismissal interactions and restarts auto-dismiss timers. It uses the current transformed style; request an
-    /// environment update to apply a new `containerStyleTransform`.
-    public func setNeedsPresentationLayout() {
-        // Clearing the last size lays out every presentation in viewDidLayoutSubviews.
-        lastLaidOutSize = nil
-        viewIfLoaded?.setNeedsLayout()
     }
 
     public override func viewWillTransition(

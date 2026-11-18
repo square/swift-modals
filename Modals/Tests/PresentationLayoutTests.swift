@@ -86,73 +86,6 @@ struct PresentationLayoutTests {
         }
     }
 
-    @Test
-    func `Toast transform is applied to each style resolved from the environment`() {
-        let previous = ToastPresentationViewController.containerStyleTransform
-        defer { ToastPresentationViewController.containerStyleTransform = previous }
-        let original = Recorder()
-        let transformed = Recorder()
-        var inputs = 0
-        ToastPresentationViewController.containerStyleTransform = { style in
-            #expect((style as? RecordingToastStyle)?.recorder === original)
-            inputs += 1
-            return RecordingToastStyle(recorder: transformed)
-        }
-        let subject = ToastPresentationViewController(styleProvider: .init(RecordingToastStyle(recorder: original)))
-        subject.update(toasts: [toast()], safeAreaAnchors: [])
-        subject.view.frame = bounds
-        subject.view.layoutIfNeeded()
-        #expect(inputs > 0)
-        #expect(transformed.toastContexts.isEmpty == false)
-        #expect(original.toastContexts.isEmpty)
-        let previousCount = inputs
-        subject.apply(environment: .empty)
-        #expect(inputs == previousCount + 1)
-    }
-
-    @Test
-    func `Toast safe area changes use its ancestor presentation view at a constant size`() {
-        let recorder = Recorder()
-        let subject = ToastPresentationViewController(styleProvider: .init(RecordingToastStyle(recorder: recorder)))
-        let container = SafeAreaView(frame: bounds)
-        subject.ancestorPresentationView = container
-        let toast = toast()
-        subject.update(toasts: [toast], safeAreaAnchors: [])
-        subject.view.frame = bounds
-        subject.view.layoutIfNeeded()
-
-        for insets in Self.horizontalInsets + [.zero] {
-            recorder.toastContexts = []
-            container.reportedInsets = insets
-            subject.view.setNeedsLayout()
-            subject.view.layoutIfNeeded()
-            #expect(recorder.toastContexts.last?.safeAreaInsets == insets)
-            let frame = toast.viewController.view.convert(toast.viewController.view.bounds, to: subject.view)
-            #expect(frame == bounds.inset(by: insets))
-            #expect(subject.view.safeAreaInsets == .zero)
-        }
-    }
-
-    @Test
-    func `Vertical safe area changes preserve a toast timer`() throws {
-        let recorder = Recorder()
-        let subject = ToastPresentationViewController(styleProvider: .init(RecordingToastStyle(recorder: recorder)))
-        let container = SafeAreaView(frame: bounds)
-        subject.ancestorPresentationView = container
-        subject.update(toasts: [toast(timedDismiss: .after(duration: 60, onDismiss: {}))], safeAreaAnchors: [])
-        subject.view.frame = bounds
-        subject.view.layoutIfNeeded()
-        let timer = try #require(subject.presentations.first?.autoDismissTimer)
-        recorder.toastContexts = []
-
-        container.reportedInsets.top = 40
-        subject.viewSafeAreaInsetsDidChange()
-        subject.view.setNeedsLayout()
-        subject.view.layoutIfNeeded()
-        #expect(recorder.toastContexts.isEmpty)
-        #expect(subject.presentations.first?.autoDismissTimer === timer)
-    }
-
     private var bounds: CGRect { CGRect(x: 0, y: 0, width: 400, height: 800) }
 
     private nonisolated static let horizontalInsets: [UIEdgeInsets] = [
@@ -163,14 +96,6 @@ struct PresentationLayoutTests {
     private func presentable(_ controller: UIViewController, style: ModalPresentationStyle = TestFullScreenStyle()) -> PresentableModal {
         PresentableModal(viewController: controller, presentationStyle: style, info: .empty(), onDidPresent: nil)
     }
-
-    private func toast(timedDismiss: ToastBehaviorPreferences.TimedDismissBehavior = .disabled) -> PresentableToast {
-        PresentableToast(
-            viewController: UIViewController(),
-            presentationStyle: ToastStyle(timedDismiss: timedDismiss),
-            accessibilityAnnouncement: "Toast"
-        )
-    }
 }
 
 private final class SafeAreaView: UIView {
@@ -180,7 +105,6 @@ private final class SafeAreaView: UIView {
 
 private final class Recorder {
     var modalContexts: [ModalPresentationContext] = []
-    var toastContexts: [ToastDisplayContext] = []
     var behaviorCalls = 0
     var enterCalls = 0
     var exitCalls = 0
@@ -218,38 +142,5 @@ private struct RecordingModalStyle: ModalPresentationStyle {
             frame: context.containerCoordinateSpace.bounds,
             animation: .curve(.linear, duration: 0)
         )
-    }
-}
-
-private struct RecordingToastStyle: ToastContainerPresentationStyle {
-    let recorder: Recorder
-
-    func displayValues(for context: ToastDisplayContext) -> ToastDisplayValues {
-        recorder.toastContexts.append(context)
-        let frame = CGRect(origin: .zero, size: context.containerSize).inset(by: context.safeAreaInsets)
-        return ToastDisplayValues(presentedValues: context.preheatValues.map { _ in .init(frame: frame) })
-    }
-
-    func preheatValues(for context: ToastPreheatContext) -> ToastPreheatValues { .init(size: context.containerSize) }
-    func enterTransitionValues(for context: ToastTransitionContext) -> ToastTransitionValues { .init(
-        frame: context.displayFrame
-    ) }
-    func exitTransitionValues(for context: ToastTransitionContext) -> ToastTransitionValues { .init(
-        frame: context.displayFrame
-    ) }
-    func reverseTransitionValues(for context: ToastTransitionContext) -> ToastTransitionValues { .init(
-        frame: context.displayFrame
-    ) }
-    func interactiveExitTransitionValues(for context: ToastInteractiveExitContext) -> ToastTransitionValues { .init(
-        frame: context.presentedFrame
-    ) }
-    func isEqual(to other: ToastContainerPresentationStyle) -> Bool { (other as? Self)?.recorder === recorder }
-}
-
-private struct ToastStyle: ToastPresentationStyle {
-    var timedDismiss: ToastBehaviorPreferences.TimedDismissBehavior
-
-    func behaviorPreferences(for context: ToastBehaviorContext) -> ToastBehaviorPreferences {
-        ToastBehaviorPreferences(presentationHaptic: .success, timedDismiss: timedDismiss, interactiveDismiss: .disabled)
     }
 }

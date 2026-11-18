@@ -1,25 +1,20 @@
 # Adjust presentation layout across an app
 
-An app can adapt modal and toast styles in one place. These APIs are optional. With no hooks installed and zero content insets, existing presentation layout and view hierarchies are unchanged.
+An app can adapt modal styles in one place. These APIs are optional. With no hooks installed and zero content insets, existing presentation layout and view hierarchies are unchanged. The hooks apply to modals only; toasts keep their existing layout.
 
-## Style transforms
+## Style transform
 
-Install the transforms on the main actor before the first presentation:
+Install the transform on the main actor before the first presentation:
 
 ```swift
 ModalPresentationViewController.presentationStyleTransform = { style in
     AppModalStyle(wrapping: style)
 }
-ToastPresentationViewController.containerStyleTransform = { style in
-    AppToastContainerStyle(wrapping: style)
-}
 ```
 
-Each modal transform receives the original style resolved for the modal's environment, on presentation and on each modal update. The returned style controls presentation behavior, display values, decorations, and transitions. Updates do not pass an already transformed style back through the transform. Environment customization takes place before this hook, through the original style.
+The transform receives the original style resolved for the modal's environment, on presentation and on each modal update. The returned style controls presentation behavior, display values, decorations, and transitions. Updates do not pass an already transformed style back through the transform. Environment customization takes place before this hook, through the original style.
 
-The toast transform receives the style resolved by the toast container's provider whenever its environment is applied. The result is compared with the previous style through `isEqual(to:)`.
-
-Changing a transform does not update existing presentations immediately. Call `setNeedsModalUpdate()` on the modal host to update modal styles. For toast styles, call `setNeedsEnvironmentUpdate()` on the toast presentation controller.
+Changing the transform does not update existing presentations immediately. Call `setNeedsModalUpdate()` on the modal host to update modal styles.
 
 ## Content insets and fill
 
@@ -61,8 +56,8 @@ The callback runs on each content layout and uses the host's own safe area. Moda
 
 ## Layout changes at runtime
 
-Modal and toast presentation controllers lay out again when the horizontal safe area changes, including changes in an ancestor presentation view. Changes to top and bottom insets alone retain the existing behavior.
+Modal presentation controllers lay out again when the horizontal safe area changes, including changes in an ancestor presentation view. Changes to top and bottom insets alone retain the existing behavior.
 
-If state read by an installed style changes without a size or safe-area change, call `setNeedsPresentationLayout()` on each affected presentation controller. This recomputes layout with the current transformed style; it does not resolve or transform styles again. For toasts, this follows the size-change path, which cancels a drag and restarts auto-dismiss timers.
+If state read by an installed style changes without a size or safe-area change, call `setNeedsPresentationLayout()` on each affected modal presentation controller. This recomputes layout with the current transformed style; it does not resolve or transform styles again.
 
 App-specific style classification, safe-area policy, colors, and runtime switches belong in the app's wrappers. Modals supplies the layout hooks without imposing those choices.
