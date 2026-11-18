@@ -65,6 +65,9 @@ struct PresentationLayoutTests {
 
     @Test
     func `Modal safe area changes move a presentation without a size change`() {
+        let previous = ModalPresentationViewController.presentationStyleTransform
+        defer { ModalPresentationViewController.presentationStyleTransform = previous }
+        ModalPresentationViewController.presentationStyleTransform = { $0 }
         let recorder = Recorder()
         let subject = ModalPresentationViewController(content: UIViewController())
         subject.view.frame = bounds
@@ -84,6 +87,30 @@ struct PresentationLayoutTests {
             #expect(modal.view.convert(modal.view.bounds, to: subject.view) == bounds.inset(by: insets))
             #expect(subject.view.bounds == bounds)
         }
+    }
+
+    @Test
+    func `Without a transform a modal safe area change alone keeps the existing layout`() {
+        let previous = ModalPresentationViewController.presentationStyleTransform
+        defer { ModalPresentationViewController.presentationStyleTransform = previous }
+        ModalPresentationViewController.presentationStyleTransform = nil
+        let recorder = Recorder()
+        let subject = ModalPresentationViewController(content: UIViewController())
+        subject.view.frame = bounds
+        let container = SafeAreaView(frame: bounds)
+        subject.ancestorPresentationView = container
+        let modal = UIViewController()
+        subject.update(modals: [presentable(modal, style: RecordingModalStyle(recorder: recorder, usesSafeArea: true))])
+        subject.view.frame = bounds
+        subject.view.layoutIfNeeded()
+        recorder.modalContexts = []
+
+        container.reportedInsets = Self.horizontalInsets[0]
+        subject.viewSafeAreaInsetsDidChange()
+        subject.view.setNeedsLayout()
+        subject.view.layoutIfNeeded()
+        #expect(recorder.modalContexts.isEmpty)
+        #expect(modal.view.convert(modal.view.bounds, to: subject.view) == bounds)
     }
 
     private var bounds: CGRect { CGRect(x: 0, y: 0, width: 400, height: 800) }

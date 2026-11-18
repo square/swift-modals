@@ -56,7 +56,7 @@ The callback runs on each content layout and uses the host's own safe area. Moda
 
 ## Layout changes at runtime
 
-Modal presentation controllers lay out again when the horizontal safe area changes, including changes in an ancestor presentation view. Changes to top and bottom insets alone retain the existing behavior.
+While `presentationStyleTransform` is set, modal presentation controllers lay out again when the horizontal safe area changes, including changes in an ancestor presentation view. Without a transform, and for changes to top and bottom insets alone, presentations lay out again only when their size changes, as before.
 
 If state read by an installed style changes without a size or safe-area change, call `setNeedsPresentationLayout()` on each affected modal presentation controller. This recomputes layout with the current transformed style; it does not resolve or transform styles again.
 

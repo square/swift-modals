@@ -158,7 +158,11 @@ public final class ModalHostContainerViewController: UIViewController, ModalHost
         modalPresentation.view.frame = view.bounds
         toastPresentation.view.frame = view.bounds
 
-        modalPresentation.view.setNeedsLayout()
+        // The content's framing can change without the presentation view's size changing, so lay the content out
+        // again with the host.
+        if Self.presentationRootContentFraming != nil {
+            modalPresentation.view.setNeedsLayout()
+        }
 
         updateModalsIfNeeded()
     }
