@@ -34,7 +34,6 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
     /// Use this to adjust presentations app-wide, for example to wrap every style in one that keeps modals out of an
     /// area covered by system UI. It is called whenever a modal is presented or updated, with the style the modal
     /// resolved for its environment. A presentation that is already showing picks up a change on its next update.
-    /// While it is set, presentations also lay out again when the left or right safe area changes.
     public static var presentationStyleTransform: ((ModalPresentationStyle) -> ModalPresentationStyle)?
 
     /// Use this property to assign an ancestor `ModalPresentationViewController` view that we should use to determine
@@ -968,9 +967,8 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
     }
 
     private func updateHorizontalSafeAreaInsets() {
-        // Untransformed styles keep laying out only when the size changes.
-        guard Self.presentationStyleTransform != nil else { return }
-
+        // Any style can read the left and right safe area, with or without a transform, and a vertical system bar can
+        // move from one side to the other without changing the presentation's size.
         let insets = HorizontalSafeAreaInsets(presentationView.safeAreaInsets)
         guard insets != lastHorizontalSafeAreaInsets else { return }
 

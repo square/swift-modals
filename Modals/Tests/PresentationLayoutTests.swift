@@ -64,10 +64,10 @@ struct PresentationLayoutTests {
     }
 
     @Test
-    func `Modal safe area changes move a presentation without a size change`() {
+    func `Modal safe area changes move a presentation without a size change or a transform`() {
         let previous = ModalPresentationViewController.presentationStyleTransform
         defer { ModalPresentationViewController.presentationStyleTransform = previous }
-        ModalPresentationViewController.presentationStyleTransform = { $0 }
+        ModalPresentationViewController.presentationStyleTransform = nil
         let recorder = Recorder()
         let subject = ModalPresentationViewController(content: UIViewController())
         subject.view.frame = bounds
@@ -90,10 +90,7 @@ struct PresentationLayoutTests {
     }
 
     @Test
-    func `Without a transform a modal safe area change alone keeps the existing layout`() {
-        let previous = ModalPresentationViewController.presentationStyleTransform
-        defer { ModalPresentationViewController.presentationStyleTransform = previous }
-        ModalPresentationViewController.presentationStyleTransform = nil
+    func `A top or bottom safe area change alone keeps the existing layout`() {
         let recorder = Recorder()
         let subject = ModalPresentationViewController(content: UIViewController())
         subject.view.frame = bounds
@@ -105,7 +102,7 @@ struct PresentationLayoutTests {
         subject.view.layoutIfNeeded()
         recorder.modalContexts = []
 
-        container.reportedInsets = Self.horizontalInsets[0]
+        container.reportedInsets = UIEdgeInsets(top: 47, left: 0, bottom: 34, right: 0)
         subject.viewSafeAreaInsetsDidChange()
         subject.view.setNeedsLayout()
         subject.view.layoutIfNeeded()
