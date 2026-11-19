@@ -277,6 +277,10 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
 
                 oldPresentation.style = style
                 oldPresentation.behaviorPreferences = style.behaviorPreferences(for: behaviorContext())
+                // Styles are resolved again on every update and can't be compared, so any replacement may carry new
+                // display values, such as colors resolved for a new appearance, that only a layout applies.
+                oldPresentation.needsLayoutWithReplacedStyle = true
+                viewIfLoaded?.setNeedsLayout()
 
                 newPresentations.append(oldPresentation)
             } else {
@@ -917,6 +921,11 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
 
         presentation.transitionState = .entering(animator)
         animator.startAnimation()
+
+        // A style replaced during an interaction waits for the modal to settle back before it's laid out.
+        if presentation.needsLayoutWithReplacedStyle {
+            view.setNeedsLayout()
+        }
     }
 
     public override func viewWillLayoutSubviews() {
@@ -951,6 +960,8 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
         } else {
             for presentation in allPresentations
                 where presentation.behaviorPreferences.needsLayoutOnPresentationLayout
+                || (presentation.needsLayoutWithReplacedStyle
+                    && presentation.transitionState.canLayOutWithReplacedStyle)
             {
                 layout(
                     presentation: presentation,
@@ -978,8 +989,9 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
 
     /// Lays out the content and every presentation again on the next layout pass.
     ///
-    /// Call this when state read by a style changes without a size change. It uses the current transformed styles;
-    /// update the host's modals to apply a new `presentationStyleTransform`.
+    /// Call this when state read by a style changes without a size change or a modal update. It uses the current
+    /// transformed styles; update the host's modals to apply a new `presentationStyleTransform`. An update lays out the
+    /// presentations whose styles it replaces without this call.
     public func setNeedsPresentationLayout() {
         // Clearing the last size lays out every presentation in viewDidLayoutSubviews.
         lastLaidOutSize = nil
@@ -1277,6 +1289,8 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
         isInteractive: Bool,
         ignoreKeyboardFrame: Bool = false
     ) {
+        presentation.needsLayoutWithReplacedStyle = false
+
         let context = presentationContext(
             for: presentation,
             isInteractive: isInteractive,
@@ -1999,6 +2013,9 @@ extension ModalPresentationViewController {
 
         var style: ModalPresentationStyle
 
+        /// Whether `style` was replaced by a modal update since the presentation was last laid out.
+        var needsLayoutWithReplacedStyle = false
+
         var behaviorPreferences: ModalBehaviorPreferences {
             didSet {
                 containerViewController.behaviorPreferences = behaviorPreferences
@@ -2182,6 +2199,28 @@ extension ModalPresentationViewController {
                  .interactiveInverse:
                 true
             default:
+                false
+            }
+        }
+
+        /// Whether a presentation in this state can be laid out with a replaced style right away.
+        ///
+        /// An interaction scrubs a paused animator toward values already set on the views, and an exit animates toward
+        /// values that can depend on whether it was interactive, so a layout in either state would pull the modal away
+        /// from its animation. An entrance can be laid out because its animator runs toward the display values.
+        var canLayOutWithReplacedStyle: Bool {
+            switch self {
+            case .pending,
+                 .entering,
+                 .presented,
+                 .transitioningSize,
+                 .adaptingToKeyboard,
+                 .pendingExit:
+                true
+            case .interactiveDismiss,
+                 .interactiveInverse,
+                 .exiting,
+                 .pendingRemoval:
                 false
             }
         }

@@ -62,6 +62,8 @@ The callback runs on each content layout and uses the host's own safe area. Moda
 
 Modal presentation controllers lay out again when the left or right safe area changes, including changes in an ancestor presentation view, whether or not a transform is installed. Any style can read `containerSafeAreaInsets`, and a vertical system bar can move from one side to the other without changing the presentation's size. A view whose left and right insets stay at zero never lays out again because of the safe area. Changes to top and bottom insets alone lay out again only when the size changes, as before.
 
-If state read by an installed style changes without a size or safe-area change, call `setNeedsPresentationLayout()` on each affected modal presentation controller. This recomputes layout with the current transformed style; it does not resolve or transform styles again.
+A modal update lays out each presentation that is already showing with its newly resolved style on the next layout pass, even when the size doesn't change. A style resolved for the environment, such as one that returns colors resolved for the current appearance, applies its new display values once the screen renders again. A presentation that is being dismissed interactively waits until it settles back, and one that is exiting keeps its exit animation.
+
+If state read by an installed style changes without a size change, a safe-area change, or a modal update, call `setNeedsPresentationLayout()` on each affected modal presentation controller. This recomputes layout with the current transformed style; it does not resolve or transform styles again.
 
 App-specific style classification, safe-area policy, colors, and runtime switches belong in the app's wrappers. Modals supplies the layout hooks without imposing those choices.

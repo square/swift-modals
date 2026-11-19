@@ -110,7 +110,47 @@ struct PresentationLayoutTests {
         #expect(modal.view.convert(modal.view.bounds, to: subject.view) == bounds)
     }
 
+    @Test(.timeLimit(.minutes(1)))
+    func `A style replaced by an update repaints a presented modal without a size change`() async throws {
+        let recorder = Recorder()
+        recorder.contentInsets = Self.horizontalInsets[0]
+        let subject = ModalPresentationViewController(content: UIViewController())
+        // The enter animation only completes in a visible window.
+        let window = UIWindow(frame: bounds)
+        window.rootViewController = subject
+        window.isHidden = false
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+        }
+        let modal = UIViewController()
+        await withCheckedContinuation { continuation in
+            subject.update(modals: [PresentableModal(
+                viewController: modal,
+                presentationStyle: RecordingModalStyle(recorder: recorder),
+                info: .empty(),
+                onDidPresent: { continuation.resume() }
+            )])
+            subject.view.layoutIfNeeded()
+        }
+
+        let style = RecordingModalStyle(recorder: recorder, fillColor: Self.darkFill, overlayColor: Self.darkOverlay)
+        subject.update(modals: [presentable(modal, style: style)])
+        subject.view.layoutIfNeeded()
+
+        let container = try #require(subject.view.subviews.compactMap {
+            $0 as? ModalPresentationViewController.ContainerView
+        }.first)
+        let fill = try #require(modal.view.superview?.subviews.compactMap { $0 as? InsetFillView }.first)
+        // The strips, not the fill view's stored color, are what paint the fill.
+        #expect(fill.subviews.filter { !$0.frame.isEmpty }.map(\.backgroundColor) == [Self.darkFill])
+        #expect(container.overlayView.backgroundColor == Self.darkOverlay)
+    }
+
     private var bounds: CGRect { CGRect(x: 0, y: 0, width: 400, height: 800) }
+
+    private static let darkFill = UIColor(white: 0.1, alpha: 1)
+    private static let darkOverlay = UIColor(white: 0, alpha: 0.7)
 
     private nonisolated static let horizontalInsets: [UIEdgeInsets] = [
         UIEdgeInsets(top: 0, left: 84, bottom: 0, right: 0),
@@ -138,6 +178,8 @@ private final class Recorder {
 private struct RecordingModalStyle: ModalPresentationStyle {
     let recorder: Recorder
     var usesSafeArea = false
+    var fillColor: UIColor = .red
+    var overlayColor: UIColor = .black
 
     func behaviorPreferences(for context: ModalBehaviorContext) -> ModalBehaviorPreferences {
         recorder.behaviorCalls += 1
@@ -149,7 +191,12 @@ private struct RecordingModalStyle: ModalPresentationStyle {
         let frame = context.containerCoordinateSpace.bounds.inset(
             by: usesSafeArea ? context.containerSafeAreaInsets : .zero
         )
-        return ModalDisplayValues(frame: frame, contentInsets: recorder.contentInsets, contentInsetsFillColor: .red)
+        return ModalDisplayValues(
+            frame: frame,
+            overlayColor: overlayColor,
+            contentInsets: recorder.contentInsets,
+            contentInsetsFillColor: fillColor
+        )
     }
 
     func enterTransitionValues(for context: ModalPresentationContext) -> ModalTransitionValues {
