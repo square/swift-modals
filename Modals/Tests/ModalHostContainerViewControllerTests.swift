@@ -126,6 +126,50 @@ final class ModalHostContainerViewControllerTests: XCTestCase {
         }
     }
 
+    func test_customFilter_receivesHostContext_andReappliesOnUpdate() {
+        final class FilterState {
+            var forwardsKeyedModals = false
+            var hosts: [UIViewController] = []
+        }
+
+        let state = FilterState()
+        let content = DirectPresentingViewController(name: "content")
+        let forwarded = DirectPresentingViewController(name: "forwarded")
+        let keyed = DirectPresentingViewController(name: "keyed")
+
+        let host = ModalHostContainerViewController(
+            content: content,
+            toastContainerStyle: .fixture,
+            presentationFilter: ModalPresentationFilter(
+                identifier: "custom",
+                presentsModalLocally: { modal, context in
+                    state.hosts.append(context.host)
+                    return !state.forwardsKeyedModals && modal.info.contains(TestModalInfoKey.self)
+                },
+                presentsToastLocally: { _, _ in false }
+            )
+        )
+        let superHost = ModalHostContainerViewController(content: host)
+
+        content.present(viewController: forwarded)
+        content.present(viewController: keyed, filter: true)
+
+        show(vc: superHost) { superHost in
+            XCTAssertEqual(host.aggregateModals().modals.map(\.viewController), [forwarded])
+            XCTAssertFalse(state.hosts.isEmpty)
+            XCTAssertTrue(state.hosts.allSatisfy { $0 === host })
+
+            // State outside of the modal changes, and the host applies the filter again after an update.
+            state.forwardsKeyedModals = true
+            host.setNeedsModalUpdate()
+            superHost.view.layoutIfNeeded()
+            host.view.layoutIfNeeded()
+
+            XCTAssertEqual(host.aggregateModals().modals.map(\.viewController), [forwarded, keyed])
+            XCTAssertTrue(host.modalPresentation.presentedViewControllers.isEmpty)
+        }
+    }
+
     func test_attaching_forwarding_host_invalidates_ancestor_for_existing_toast() {
         let innerContent = UIViewController()
         let innerHost = ModalHostContainerViewController(content: innerContent)
