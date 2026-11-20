@@ -26,7 +26,7 @@ The presentation clips its content at the presentation's frame, not at the inset
 
 ## Layout changes at runtime
 
-Modal presentation controllers lay out again when the left or right safe area changes, including changes in an ancestor presentation view. Any style can read `containerSafeAreaInsets`, and a vertical system bar can move from one side to the other without changing the presentation's size. A view whose left and right insets stay at zero never lays out again because of the safe area. Changes to top and bottom insets alone lay out again only when the size changes, as before.
+Modal presentation controllers lay out again when the safe area changes, including changes in an ancestor presentation view. Any style can read `containerSafeAreaInsets`, and the safe area can change without changing the presentation's size, for example when a vertical system bar moves from one side to the other. A view whose insets stay at zero never lays out again because of the safe area.
 
 A modal update lays out each presentation that is already showing with its newly resolved style on the next layout pass, even when the size doesn't change. A style resolved for the environment, such as one that returns colors resolved for the current appearance, applies its new display values once the screen renders again. A presentation that is being dismissed interactively waits until it settles back, and one that is exiting keeps its exit animation.
 

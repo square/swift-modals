@@ -43,7 +43,7 @@ struct PresentationLayoutTests {
         subject.view.frame = bounds
         subject.view.layoutIfNeeded()
 
-        for insets in Self.horizontalInsets + [.zero] {
+        for insets in [Self.verticalInsets] + Self.horizontalInsets + [.zero] {
             recorder.modalContexts = []
             container.reportedInsets = insets
             subject.view.setNeedsLayout()
@@ -55,7 +55,7 @@ struct PresentationLayoutTests {
     }
 
     @Test
-    func `A top or bottom safe area change alone keeps the existing layout`() {
+    func `An unchanged safe area keeps the existing layout`() {
         let recorder = Recorder()
         let subject = ModalPresentationViewController(content: UIViewController())
         subject.view.frame = bounds
@@ -64,15 +64,16 @@ struct PresentationLayoutTests {
         let modal = UIViewController()
         subject.update(modals: [presentable(modal, style: RecordingModalStyle(recorder: recorder, usesSafeArea: true))])
         subject.view.frame = bounds
+        container.reportedInsets = Self.verticalInsets
+        subject.view.setNeedsLayout()
         subject.view.layoutIfNeeded()
         recorder.modalContexts = []
 
-        container.reportedInsets = UIEdgeInsets(top: 47, left: 0, bottom: 34, right: 0)
         subject.viewSafeAreaInsetsDidChange()
         subject.view.setNeedsLayout()
         subject.view.layoutIfNeeded()
         #expect(recorder.modalContexts.isEmpty)
-        #expect(modal.view.convert(modal.view.bounds, to: subject.view) == bounds)
+        #expect(modal.view.convert(modal.view.bounds, to: subject.view) == bounds.inset(by: Self.verticalInsets))
     }
 
     @Test(.timeLimit(.minutes(1)))
@@ -121,6 +122,8 @@ struct PresentationLayoutTests {
         UIEdgeInsets(top: 0, left: 84, bottom: 0, right: 0),
         UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 84),
     ]
+
+    private nonisolated static let verticalInsets = UIEdgeInsets(top: 47, left: 0, bottom: 34, right: 0)
 
     private func presentable(_ controller: UIViewController, style: ModalPresentationStyle = TestFullScreenStyle()) -> PresentableModal {
         PresentableModal(viewController: controller, presentationStyle: style, info: .empty(), onDidPresent: nil)

@@ -74,9 +74,9 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
     private var allPresentations: [Presentation] = []
     /// The last size for which we performed a layout on our presentations.
     private var lastLaidOutSize: CGSize?
-    /// The left and right safe-area insets of the last safe-area change. Starts at zero, so a view without horizontal
-    /// insets never lays out again because of the safe area.
-    private var lastHorizontalSafeAreaInsets = HorizontalSafeAreaInsets(.zero)
+    /// The safe-area insets of the last safe-area change. Starts at zero, so a view without insets never lays out again
+    /// because of the safe area.
+    private var lastSafeAreaInsets: UIEdgeInsets = .zero
     private var isTrackingScrollViewDismiss = false
     private let scrollViewFinder = TrackedScrollViewFinder()
     private let panGestureRecognizer = UIPanGestureRecognizer()
@@ -921,7 +921,7 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
     public override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
 
-        updateHorizontalSafeAreaInsets()
+        updateSafeAreaInsets()
         content.view.frame = view.bounds
 
         for presentation in allPresentations {
@@ -964,16 +964,16 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
     public override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
 
-        updateHorizontalSafeAreaInsets()
+        updateSafeAreaInsets()
     }
 
-    private func updateHorizontalSafeAreaInsets() {
-        // Any style can read the left and right safe area, and a vertical system bar can move from one side to the
-        // other without changing the presentation's size.
-        let insets = HorizontalSafeAreaInsets(presentationView.safeAreaInsets)
-        guard insets != lastHorizontalSafeAreaInsets else { return }
+    private func updateSafeAreaInsets() {
+        // Any style can read the safe area, and it can change without changing the presentation's size, for example
+        // when a vertical system bar moves from one side to the other.
+        let insets = presentationView.safeAreaInsets
+        guard insets != lastSafeAreaInsets else { return }
 
-        lastHorizontalSafeAreaInsets = insets
+        lastSafeAreaInsets = insets
         setNeedsPresentationLayout()
     }
 
@@ -2617,16 +2617,5 @@ extension ModalPresentationViewController: KeyboardObserverDelegate {
         if needsDisableAnimations {
             UIView.setAnimationsEnabled(false)
         }
-    }
-}
-
-/// The left and right of a set of safe-area insets, so a safe-area change can be told apart from a top or bottom one.
-struct HorizontalSafeAreaInsets: Equatable {
-    var left: CGFloat
-    var right: CGFloat
-
-    init(_ insets: UIEdgeInsets) {
-        left = insets.left
-        right = insets.right
     }
 }
