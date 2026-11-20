@@ -41,7 +41,7 @@ In Xcode 11+, add Workflow directly as a dependency to your project with
 - Usage from [vanilla UIKit](Documentation/uikit-usage.md)
 - Usage from [Workflow](Documentation/workflow-usage.md)
 - [General usage tips](Documentation/tips.md)
-- [Adjusting presentation layout](Documentation/presentation-framing.md)
+- [Keeping modal content out of part of its presentation](Documentation/presentation-framing.md)
 - API docs (TODO)
 
 Some sample code is available in the [Samples](Samples) directory. To build the sample code, use the local development instructions below.

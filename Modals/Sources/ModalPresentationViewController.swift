@@ -28,14 +28,6 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
         presentations(includeExiting: false).map(\.viewController)
     }
 
-    /// Transforms the presentation style of every modal, in every `ModalPresentationViewController`, before it is
-    /// used. Defaults to `nil`, which uses each modal's style as it is.
-    ///
-    /// Use this to adjust presentations app-wide, for example to wrap every style in one that keeps modals out of an
-    /// area covered by system UI. It is called whenever a modal is presented or updated, with the style the modal
-    /// resolved for its environment. A presentation that is already showing picks up a change on its next update.
-    public static var presentationStyleTransform: ((ModalPresentationStyle) -> ModalPresentationStyle)?
-
     /// Use this property to assign an ancestor `ModalPresentationViewController` view that we should use to determine
     /// the frame of our presentations.
     @_spi(ModalsImplementation)
@@ -85,8 +77,6 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
     /// The left and right safe-area insets of the last safe-area change. Starts at zero, so a view without horizontal
     /// insets never lays out again because of the safe area.
     private var lastHorizontalSafeAreaInsets = HorizontalSafeAreaInsets(.zero)
-    /// Fills the area beside `content` when the host frames it. Created the first time it is needed.
-    private var contentFillView: InsetFillView?
     private var isTrackingScrollViewDismiss = false
     private let scrollViewFinder = TrackedScrollViewFinder()
     private let panGestureRecognizer = UIPanGestureRecognizer()
@@ -134,8 +124,8 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
     public override func viewDidLoad() {
         super.viewDidLoad()
 
+        content.view.frame = view.bounds
         view.addSubview(content.view)
-        layoutContent()
 
         for presentation in allPresentations {
             addChild(presentation.containerViewController)
@@ -220,7 +210,7 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
         // If the view isn't loaded, no need to transition in.
         let transitionState: TransitionState = isViewLoaded ? .pending : .presented
 
-        let style = Self.transformedStyle(modal.presentationStyle)
+        let style = modal.presentationStyle
         let behaviorPreferences = style.behaviorPreferences(for: behaviorContext())
 
         var accessibilityDismissal = Presentation.AccessibilityDismissal()
@@ -273,7 +263,7 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
         for modal in modals {
             if let index = oldPresentations.index(of: modal.viewController) {
                 let oldPresentation = oldPresentations[index]
-                let style = Self.transformedStyle(modal.presentationStyle)
+                let style = modal.presentationStyle
 
                 oldPresentation.style = style
                 oldPresentation.behaviorPreferences = style.behaviorPreferences(for: behaviorContext())
@@ -354,8 +344,8 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
         updateFirstResponderAndAccessibilityFocus()
 
         // Only re-arrange views if they don't already match the hierarchy.
-        // (We only compare container views, because `content.view` and its fill view sit below them.)
-        let viewsNeedSorting = allPresentations.map(\.containerView) != view.subviews.compactMap { $0 as? ContainerView }
+        // (We dropFirst because our first subview is `content.view`.)
+        let viewsNeedSorting = allPresentations.map(\.containerView) != Array(view.subviews.dropFirst())
 
         for presentation in allPresentations {
             // Add any pending presentation views
@@ -932,7 +922,7 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
         super.viewWillLayoutSubviews()
 
         updateHorizontalSafeAreaInsets()
-        layoutContent()
+        content.view.frame = view.bounds
 
         for presentation in allPresentations {
             presentation.containerView.frame = containerFrame
@@ -978,8 +968,8 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
     }
 
     private func updateHorizontalSafeAreaInsets() {
-        // Any style can read the left and right safe area, with or without a transform, and a vertical system bar can
-        // move from one side to the other without changing the presentation's size.
+        // Any style can read the left and right safe area, and a vertical system bar can move from one side to the
+        // other without changing the presentation's size.
         let insets = HorizontalSafeAreaInsets(presentationView.safeAreaInsets)
         guard insets != lastHorizontalSafeAreaInsets else { return }
 
@@ -987,12 +977,8 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
         setNeedsPresentationLayout()
     }
 
-    /// Lays out the content and every presentation again on the next layout pass.
-    ///
-    /// Call this when state read by a style changes without a size change or a modal update. It uses the current
-    /// transformed styles; update the host's modals to apply a new `presentationStyleTransform`. An update lays out the
-    /// presentations whose styles it replaces without this call.
-    public func setNeedsPresentationLayout() {
+    /// Lays out every presentation again on the next layout pass, even if the size hasn't changed.
+    func setNeedsPresentationLayout() {
         // Clearing the last size lays out every presentation in viewDidLayoutSubviews.
         lastLaidOutSize = nil
         viewIfLoaded?.setNeedsLayout()
@@ -1257,31 +1243,6 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
 
     private func behaviorContext() -> ModalBehaviorContext {
         ModalBehaviorContext()
-    }
-
-    private static func transformedStyle(_ style: ModalPresentationStyle) -> ModalPresentationStyle {
-        presentationStyleTransform?(style) ?? style
-    }
-
-    /// Lays out `content`, inset if our host frames it (see
-    /// `ModalHostContainerViewController.presentationRootContentFraming`).
-    private func layoutContent() {
-        let framing = (parent as? ModalHostContainerViewController)?.contentFraming
-        let contentFrame = view.bounds.inset(by: framing?.insets ?? .zero)
-
-        content.view.frame = contentFrame
-
-        guard framing?.fillColor != nil || contentFillView != nil else { return }
-
-        let fillView = contentFillView ?? InsetFillView()
-        if fillView.superview == nil {
-            view.insertSubview(fillView, aboveSubview: content.view)
-            contentFillView = fillView
-        }
-
-        fillView.frame = view.bounds
-        fillView.viewport = contentFrame
-        fillView.fillColor = framing?.fillColor
     }
 
     private func layout(

@@ -5,38 +5,6 @@ import UIKit
 @Suite(.serialized) @MainActor
 struct PresentationLayoutTests {
     @Test
-    func `Modal transform receives the original style on presentation and update`() throws {
-        let previous = ModalPresentationViewController.presentationStyleTransform
-        defer { ModalPresentationViewController.presentationStyleTransform = previous }
-        var inputs: [ModalPresentationStyle] = []
-        let recorder = Recorder()
-        ModalPresentationViewController.presentationStyleTransform = { style in
-            inputs.append(style)
-            return RecordingModalStyle(recorder: recorder, usesSafeArea: true)
-        }
-        let subject = ModalPresentationViewController(content: UIViewController())
-        subject.view.frame = bounds
-        let modal = UIViewController()
-        let presented = presentable(modal)
-        subject.update(modals: [presented])
-        subject.view.frame = bounds
-        subject.view.layoutIfNeeded()
-
-        #expect(inputs.count == 1)
-        #expect(inputs.allSatisfy { $0 is TestFullScreenStyle })
-        #expect(recorder.behaviorCalls > 0)
-        #expect(recorder.modalContexts.isEmpty == false)
-        #expect(recorder.enterCalls > 0)
-
-        subject.update(modals: [presented])
-        #expect(inputs.count == 2)
-        #expect(inputs.allSatisfy { $0 is TestFullScreenStyle })
-
-        subject.update(modals: [])
-        #expect(recorder.exitCalls > 0)
-    }
-
-    @Test
     func `Modal content insets change without changing its frame or overlay`() throws {
         let insets = Self.horizontalInsets[0]
         let recorder = Recorder()
@@ -64,10 +32,7 @@ struct PresentationLayoutTests {
     }
 
     @Test
-    func `Modal safe area changes move a presentation without a size change or a transform`() {
-        let previous = ModalPresentationViewController.presentationStyleTransform
-        defer { ModalPresentationViewController.presentationStyleTransform = previous }
-        ModalPresentationViewController.presentationStyleTransform = nil
+    func `Modal safe area changes move a presentation without a size change`() {
         let recorder = Recorder()
         let subject = ModalPresentationViewController(content: UIViewController())
         subject.view.frame = bounds
@@ -169,9 +134,6 @@ private final class SafeAreaView: UIView {
 
 private final class Recorder {
     var modalContexts: [ModalPresentationContext] = []
-    var behaviorCalls = 0
-    var enterCalls = 0
-    var exitCalls = 0
     var contentInsets: UIEdgeInsets = .zero
 }
 
@@ -182,8 +144,7 @@ private struct RecordingModalStyle: ModalPresentationStyle {
     var overlayColor: UIColor = .black
 
     func behaviorPreferences(for context: ModalBehaviorContext) -> ModalBehaviorPreferences {
-        recorder.behaviorCalls += 1
-        return ModalBehaviorPreferences(usesPreferredContentSize: false)
+        ModalBehaviorPreferences(usesPreferredContentSize: false)
     }
 
     func displayValues(for context: ModalPresentationContext) -> ModalDisplayValues {
@@ -200,16 +161,14 @@ private struct RecordingModalStyle: ModalPresentationStyle {
     }
 
     func enterTransitionValues(for context: ModalPresentationContext) -> ModalTransitionValues {
-        recorder.enterCalls += 1
-        return ModalTransitionValues(
+        ModalTransitionValues(
             frame: context.containerCoordinateSpace.bounds,
             animation: .curve(.linear, duration: 0)
         )
     }
 
     func exitTransitionValues(for context: ModalPresentationContext) -> ModalTransitionValues {
-        recorder.exitCalls += 1
-        return ModalTransitionValues(
+        ModalTransitionValues(
             frame: context.containerCoordinateSpace.bounds,
             animation: .curve(.linear, duration: 0)
         )
