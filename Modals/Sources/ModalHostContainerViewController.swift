@@ -239,7 +239,7 @@ public final class ModalHostContainerViewController: UIViewController, ModalHost
         var modalList = content.aggregateModals()
 
         if let presentationFilter, hasAncestorModalHost {
-            modalList = presentationFilter.presentedLocally(modalList)
+            modalList = presentationFilter.presentedLocally(modalList, in: .init(host: self))
         }
 
         modalPresentation.update(modals: modalList.modals)
@@ -260,7 +260,7 @@ public final class ModalHostContainerViewController: UIViewController, ModalHost
 
         // Some modals should be forwarded. Pass them through to aggregation.
         let modalList = content.aggregateModals()
-        return presentationFilter.presentedByAncestor(modalList)
+        return presentationFilter.presentedByAncestor(modalList, in: .init(host: self))
     }
 
     private var ancestorModalHost: ModalHost? {

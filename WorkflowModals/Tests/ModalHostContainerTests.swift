@@ -380,6 +380,63 @@ class ModalHostContainerTests: XCTestCase {
         }
     }
 
+    func test_custom_presentation_filter_receives_host_context() {
+        enum PresentedModal: UniqueModalInfoKey {}
+
+        final class ParentController: UIViewController, ModalHost {
+            func setNeedsModalUpdate() {}
+        }
+
+        var hosts: [UIViewController] = []
+
+        let modalScreen = ModalContainer(
+            base: EmptyScreen(),
+            modals: [
+                Modal(
+                    key: "presented-modal",
+                    style: FullScreenModalStyle(),
+                    info: .empty().setting(uniqueKey: PresentedModal.self),
+                    screen: EmptyScreen()
+                ),
+                Modal(
+                    key: "forwarded-modal",
+                    style: FullScreenModalStyle(),
+                    info: .empty(),
+                    screen: EmptyScreen()
+                ),
+            ]
+        )
+
+        let parent = ParentController()
+
+        let child = ModalHostContainer.ViewController(
+            screen: .init(
+                content: modalScreen,
+                toastContainerStyle: .fixture,
+                presentationFilter: ModalPresentationFilter(
+                    identifier: "custom",
+                    presentsModalLocally: { modal, context in
+                        hosts.append(context.host)
+                        return modal.info.contains(PresentedModal.self)
+                    },
+                    presentsToastLocally: { _, _ in false }
+                )
+            ),
+            environment: .empty
+        )
+
+        parent.addChild(child)
+        child.view.layoutIfNeeded()
+
+        let aggregated = child.aggregateModals().modals
+        XCTAssertEqual(aggregated.count, 1)
+        XCTAssertFalse(aggregated.contains { $0.info.contains(PresentedModal.self) })
+        XCTAssertEqual(child.modalPresentationController.presentedViewControllers.count, 1)
+
+        XCTAssertFalse(hosts.isEmpty)
+        XCTAssertTrue(hosts.allSatisfy { $0 === child })
+    }
+
     func test_attaching_forwarding_host_invalidates_ancestor_for_existing_toast() {
         let innerHost = makeToastHost()
         let outerHost = makeToastHost()

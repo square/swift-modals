@@ -306,7 +306,7 @@ extension ModalHostContainer: Screen where Content: Screen {
             var modalList = content.aggregateModals()
 
             if let presentationFilter = screen.presentationFilter, hasAncestorModalHost {
-                modalList = presentationFilter.presentedLocally(modalList)
+                modalList = presentationFilter.presentedLocally(modalList, in: .init(host: self))
             }
 
             modalPresentationController.update(modals: modalList.modals)
@@ -327,7 +327,7 @@ extension ModalHostContainer: Screen where Content: Screen {
 
             // Some modals should be forwarded. Pass them through to aggregation.
             let modalList = content.aggregateModals()
-            return presentationFilter.presentedByAncestor(modalList)
+            return presentationFilter.presentedByAncestor(modalList, in: .init(host: self))
         }
 
         // MARK: HostToastPresenting
