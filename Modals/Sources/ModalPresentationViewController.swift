@@ -256,6 +256,8 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
         let oldPresentations = allPresentations
         // Will contain the new set of presented modals
         var newPresentations: [Presentation] = []
+        // Presentations that stay up with a style that may have changed
+        var restyledPresentations: [Presentation] = []
 
         for modal in modals {
             if let index = oldPresentations.index(of: modal.viewController) {
@@ -266,6 +268,7 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
                 oldPresentation.behaviorPreferences = style.behaviorPreferences(for: behaviorContext())
 
                 newPresentations.append(oldPresentation)
+                restyledPresentations.append(oldPresentation)
             } else {
                 let presentation = newPresentation(for: modal)
                 newPresentations.append(presentation)
@@ -302,6 +305,17 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
         allPresentations = newPresentations
 
         updatePresentations(oldTopPresentation: oldTopPresentation)
+
+        // A style can depend on the environment, such as the text size, so a modal that stays up can get a new frame
+        // while this view keeps its size. Nothing else lays it out again until the size changes. A modal that is
+        // still entering takes its new frame when the entrance completes, and an interactive or animated transition
+        // would jump, so only settled modals lay out here.
+        if isViewLoaded {
+            for presentation in restyledPresentations {
+                guard case .presented = presentation.transitionState else { continue }
+                layout(presentation: presentation, isInteractive: false)
+            }
+        }
 
         if oldStatusBarAppearanceSource != topmostViewController(
             passingContainmentPreference: \.providesStatusBarAppearance

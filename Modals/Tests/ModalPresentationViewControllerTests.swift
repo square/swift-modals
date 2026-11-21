@@ -187,6 +187,54 @@ final class ModalPresentationViewControllerTests: XCTestCase {
         window.isHidden = true
     }
 
+    // MARK: - Style updates
+
+    func test_presented_modal_lays_out_again_when_update_changes_its_style() {
+        let content = UIViewController()
+        let subject = ModalPresentationViewController(content: content)
+
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 400, height: 800))
+        window.rootViewController = subject
+        window.makeKeyAndVisible()
+        defer {
+            window.resignKey()
+            window.isHidden = true
+        }
+
+        let modalViewController = UIViewController()
+        let presented = expectation(description: "presented")
+
+        subject.update(modals: [
+            PresentableModal(
+                viewController: modalViewController,
+                presentationStyle: VerticalInsetStyle(inset: 24),
+                info: .empty(),
+                onDidPresent: { presented.fulfill() }
+            ),
+        ])
+        wait(for: [presented], timeout: 2)
+
+        XCTAssertEqual(frame(of: modalViewController, in: subject), CGRect(x: 0, y: 24, width: 400, height: 752))
+
+        // A style can depend on the environment, such as the text size, so the same modal can come back with a new
+        // style while the host keeps its size.
+        subject.update(modals: [
+            PresentableModal(
+                viewController: modalViewController,
+                presentationStyle: VerticalInsetStyle(inset: 32),
+                info: .empty(),
+                onDidPresent: nil
+            ),
+        ])
+        subject.view.layoutIfNeeded()
+
+        XCTAssertEqual(frame(of: modalViewController, in: subject), CGRect(x: 0, y: 32, width: 400, height: 736))
+    }
+
+    private func frame(of viewController: UIViewController, in subject: UIViewController) -> CGRect {
+        viewController.view.convert(viewController.view.bounds, to: subject.view)
+    }
+
     func modal(for vc: UIViewController) -> PresentableModal {
         PresentableModal(
             viewController: vc,
@@ -194,5 +242,30 @@ final class ModalPresentationViewControllerTests: XCTestCase {
             info: .empty(),
             onDidPresent: nil
         )
+    }
+}
+
+/// A full-width style inset from the top and bottom of the container.
+private struct VerticalInsetStyle: ModalPresentationStyle {
+    var inset: CGFloat
+
+    func behaviorPreferences(for context: ModalBehaviorContext) -> ModalBehaviorPreferences {
+        ModalBehaviorPreferences(usesPreferredContentSize: false)
+    }
+
+    func displayValues(for context: ModalPresentationContext) -> ModalDisplayValues {
+        ModalDisplayValues(frame: frame(in: context))
+    }
+
+    func enterTransitionValues(for context: ModalPresentationContext) -> ModalTransitionValues {
+        ModalTransitionValues(frame: frame(in: context))
+    }
+
+    func exitTransitionValues(for context: ModalPresentationContext) -> ModalTransitionValues {
+        ModalTransitionValues(frame: frame(in: context))
+    }
+
+    private func frame(in context: ModalPresentationContext) -> CGRect {
+        context.containerCoordinateSpace.bounds.insetBy(dx: 0, dy: inset)
     }
 }
