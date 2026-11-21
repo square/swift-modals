@@ -20,6 +20,15 @@ public struct ModalDisplayValues {
     public var shadow: ModalShadow
     /// Decorations to show alongside the modal.
     public var decorations: [ModalDecoration]
+    /// Insets that lay out the modal's content inside `frame`, rather than filling it. Defaults to `.zero`.
+    ///
+    /// Use this to keep content out of part of the modal, such as an area covered by system UI, without changing the
+    /// modal's frame or transitions. The insets move the content's view itself, so content that ignores its safe area
+    /// moves too. The content's safe area follows its inset frame, so content that respects it is not inset twice.
+    public var contentInsets: UIEdgeInsets
+    /// The color that fills the area between `frame` and the inset content, covering anything the content draws beyond
+    /// its bounds. Defaults to `nil`, for no fill.
+    public var contentInsetsFillColor: UIColor?
 
     /// Create a new set of modal display values.
     public init(
@@ -29,7 +38,9 @@ public struct ModalDisplayValues {
         overlayOpacity: CGFloat = 0,
         overlayColor: UIColor = .black,
         shadow: ModalShadow = .none,
-        decorations: [ModalDecoration] = []
+        decorations: [ModalDecoration] = [],
+        contentInsets: UIEdgeInsets = .zero,
+        contentInsetsFillColor: UIColor? = nil
     ) {
         self.frame = frame
         self.alpha = alpha
@@ -38,5 +49,7 @@ public struct ModalDisplayValues {
         self.overlayColor = overlayColor
         self.shadow = shadow
         self.decorations = decorations
+        self.contentInsets = contentInsets
+        self.contentInsetsFillColor = contentInsetsFillColor
     }
 }

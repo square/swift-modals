@@ -5,6 +5,9 @@ public struct ModalPresentationContext {
     /// The coordinate space of the container presenting the modal.
     public var containerCoordinateSpace: UICoordinateSpace
     /// The safe area insets of the container presenting the modal.
+    ///
+    /// The presentation lays out again whenever these insets change, even if its size doesn't, so a style that reads
+    /// them always gets current values.
     public var containerSafeAreaInsets: UIEdgeInsets
     /// The keyboard frame in the container's coordinate space.
     public var containerKeyboardFrame: CGRect?

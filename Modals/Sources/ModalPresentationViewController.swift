@@ -74,6 +74,9 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
     private var allPresentations: [Presentation] = []
     /// The last size for which we performed a layout on our presentations.
     private var lastLaidOutSize: CGSize?
+    /// The safe-area insets of the last safe-area change. Starts at zero, so a view without insets never lays out again
+    /// because of the safe area.
+    private var lastSafeAreaInsets: UIEdgeInsets = .zero
     private var isTrackingScrollViewDismiss = false
     private let scrollViewFinder = TrackedScrollViewFinder()
     private let panGestureRecognizer = UIPanGestureRecognizer()
@@ -264,6 +267,10 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
 
                 oldPresentation.style = style
                 oldPresentation.behaviorPreferences = style.behaviorPreferences(for: behaviorContext())
+                // Styles are resolved again on every update and can't be compared, so any replacement may carry new
+                // display values, such as colors resolved for a new appearance, that only a layout applies.
+                oldPresentation.needsLayoutWithReplacedStyle = true
+                viewIfLoaded?.setNeedsLayout()
 
                 newPresentations.append(oldPresentation)
             } else {
@@ -904,11 +911,17 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
 
         presentation.transitionState = .entering(animator)
         animator.startAnimation()
+
+        // A style replaced during an interaction waits for the modal to settle back before it's laid out.
+        if presentation.needsLayoutWithReplacedStyle {
+            view.setNeedsLayout()
+        }
     }
 
     public override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
 
+        updateSafeAreaInsets()
         content.view.frame = view.bounds
 
         for presentation in allPresentations {
@@ -937,6 +950,8 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
         } else {
             for presentation in allPresentations
                 where presentation.behaviorPreferences.needsLayoutOnPresentationLayout
+                || (presentation.needsLayoutWithReplacedStyle
+                    && presentation.transitionState.canLayOutWithReplacedStyle)
             {
                 layout(
                     presentation: presentation,
@@ -944,6 +959,29 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
                 )
             }
         }
+    }
+
+    public override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+
+        updateSafeAreaInsets()
+    }
+
+    private func updateSafeAreaInsets() {
+        // Any style can read the safe area, and it can change without changing the presentation's size, for example
+        // when a vertical system bar moves from one side to the other.
+        let insets = presentationView.safeAreaInsets
+        guard insets != lastSafeAreaInsets else { return }
+
+        lastSafeAreaInsets = insets
+        setNeedsPresentationLayout()
+    }
+
+    /// Lays out every presentation again on the next layout pass, even if the size hasn't changed.
+    func setNeedsPresentationLayout() {
+        // Clearing the last size lays out every presentation in viewDidLayoutSubviews.
+        lastLaidOutSize = nil
+        viewIfLoaded?.setNeedsLayout()
     }
 
     public override func viewWillTransition(
@@ -1212,6 +1250,8 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
         isInteractive: Bool,
         ignoreKeyboardFrame: Bool = false
     ) {
+        presentation.needsLayoutWithReplacedStyle = false
+
         let context = presentationContext(
             for: presentation,
             isInteractive: isInteractive,
@@ -1220,12 +1260,15 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
 
         func presentedLayout() {
             let displayValues = presentation.style.displayValues(for: context)
+            let contentInsetsChanged = presentation.clippingView.contentInsets != displayValues.contentInsets
+                || presentation.clippingView.contentInsetsFillColor != displayValues.contentInsetsFillColor
+            presentation.clippingView.apply(contentInsetsOf: displayValues)
 
             // Since this function can be called animated, we want to ensure that we do not force an animated layout
             // of the modal content if the frame hasn't changed.
             let frameChanged = (displayValues.frame != presentation.presentationView.frame)
             let boundsChanged = (containerFrame != presentation.containerView.frame)
-            if frameChanged || boundsChanged {
+            if frameChanged || boundsChanged || contentInsetsChanged {
                 presentation.presentationView.set(
                     frame: displayValues.frame,
                     transform: .identity
@@ -1263,6 +1306,7 @@ public final class ModalPresentationViewController: UIViewController, UIGestureR
 
         func layout(transitionValues: ModalTransitionValues) {
             let displayValues = presentation.style.displayValues(for: context)
+            presentation.clippingView.apply(contentInsetsOf: displayValues)
 
             presentation.presentationView.set(
                 frame: transitionValues.frame,
@@ -1930,6 +1974,9 @@ extension ModalPresentationViewController {
 
         var style: ModalPresentationStyle
 
+        /// Whether `style` was replaced by a modal update since the presentation was last laid out.
+        var needsLayoutWithReplacedStyle = false
+
         var behaviorPreferences: ModalBehaviorPreferences {
             didSet {
                 containerViewController.behaviorPreferences = behaviorPreferences
@@ -1963,7 +2010,9 @@ extension ModalPresentationViewController {
         /// second time will have no effect.
         var transitionState: TransitionState {
             willSet {
-                ModalsLogging.logger.debug("Modal \(viewController) will transition from \(transitionState) to \(newValue)")
+                ModalsLogging.logger.debug(
+                    "Modal \(viewController) will transition from \(transitionState) to \(newValue)"
+                )
 
                 guard let animator = transitionState.animator,
                       animator != newValue.animator
@@ -2111,6 +2160,28 @@ extension ModalPresentationViewController {
                  .interactiveInverse:
                 true
             default:
+                false
+            }
+        }
+
+        /// Whether a presentation in this state can be laid out with a replaced style right away.
+        ///
+        /// An interaction scrubs a paused animator toward values already set on the views, and an exit animates toward
+        /// values that can depend on whether it was interactive, so a layout in either state would pull the modal away
+        /// from its animation. An entrance can be laid out because its animator runs toward the display values.
+        var canLayOutWithReplacedStyle: Bool {
+            switch self {
+            case .pending,
+                 .entering,
+                 .presented,
+                 .transitioningSize,
+                 .adaptingToKeyboard,
+                 .pendingExit:
+                true
+            case .interactiveDismiss,
+                 .interactiveInverse,
+                 .exiting,
+                 .pendingRemoval:
                 false
             }
         }

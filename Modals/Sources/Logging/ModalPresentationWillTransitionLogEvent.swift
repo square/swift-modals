@@ -58,7 +58,9 @@ public struct ModalPresentationWillTransitionLogEvent: CustomStringConvertible {
             return nil
         }
 
-        guard case .stringConvertible(let presenterViewController as UIViewController) = metadata["presenterViewController"] else { return nil }
+        guard case .stringConvertible(let presenterViewController as UIViewController) = metadata[
+            "presenterViewController"
+        ] else { return nil }
         self.presenterViewController = presenterViewController
 
         guard case .stringConvertible(let fromViewController as UIViewController) = metadata["fromViewController"] else { return nil }
